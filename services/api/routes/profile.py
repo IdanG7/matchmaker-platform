@@ -5,7 +5,7 @@ Profile management endpoints.
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from models.schemas import ProfileResponse, UpdateProfileRequest, ErrorResponse
+from models.schemas import ProfileResponse, UpdateProfileRequest
 from utils.dependencies import get_current_user
 from utils.database import get_db_connection
 

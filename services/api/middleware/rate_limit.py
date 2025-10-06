@@ -2,7 +2,6 @@
 Rate limiting middleware using Redis.
 """
 
-import time
 import logging
 from typing import Optional
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -68,7 +67,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         status_code=429,
                         content={
                             "error": "rate_limit_exceeded",
-                            "message": f"Rate limit of {self.rate_limit} requests per minute exceeded",
+                            "message": (
+                                f"Rate limit of {self.rate_limit} requests "
+                                "per minute exceeded"
+                            ),
                         },
                     )
                 # Increment counter

@@ -2,8 +2,7 @@
 Unit tests for authentication utilities.
 """
 
-import pytest
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from utils.auth import (
     hash_password,

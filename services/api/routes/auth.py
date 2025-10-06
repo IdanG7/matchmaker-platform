@@ -3,7 +3,6 @@ Authentication endpoints: register, login, refresh.
 """
 
 import logging
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from asyncpg import UniqueViolationError
 
@@ -13,7 +12,6 @@ from models.schemas import (
     RefreshTokenRequest,
     AuthResponse,
     TokenResponse,
-    ErrorResponse,
 )
 from utils.auth import (
     hash_password,

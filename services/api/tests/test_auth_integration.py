@@ -4,17 +4,18 @@ Integration tests for authentication endpoints.
 These tests validate the entire auth flow against the actual API.
 """
 
-import pytest
-import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
-from fastapi import status
-
-# Import the FastAPI app
 import sys
 import os
 
+# Import the FastAPI app
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from main import app
+
+import pytest  # noqa: E402
+import pytest_asyncio  # noqa: E402
+from httpx import AsyncClient, ASGITransport  # noqa: E402
+from fastapi import status  # noqa: E402
+
+from main import app  # noqa: E402
 
 
 @pytest_asyncio.fixture

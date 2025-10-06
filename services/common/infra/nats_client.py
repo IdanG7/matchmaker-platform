@@ -2,7 +2,6 @@
 
 import os
 import logging
-import asyncio
 import json
 from typing import Optional, Callable, Any, Dict
 from nats.aio.client import Client as NATS
