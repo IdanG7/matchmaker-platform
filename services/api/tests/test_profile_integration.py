@@ -5,6 +5,7 @@ These tests validate profile management against the actual API.
 """
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from fastapi import status
 
@@ -16,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from main import app
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client():
     """Create test client."""
     transport = ASGITransport(app=app)
@@ -24,7 +25,7 @@ async def client():
         yield ac
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def authenticated_user(client):
     """Create and authenticate a test user, return tokens and user data."""
     import uuid

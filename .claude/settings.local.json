@@ -17,7 +17,8 @@
       "Bash(black:*)",
       "Bash(pipx install:*)",
       "Bash(~/.local/bin/black services/ tests/)",
-      "Bash(~/.local/bin/black services/api/tests/)"
+      "Bash(~/.local/bin/black services/api/tests/)",
+      "Bash(~/.local/bin/black:*)"
     ],
     "deny": [],
     "ask": []

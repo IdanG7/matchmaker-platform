@@ -11,7 +11,9 @@ import asyncpg
 
 
 # Set test environment variables
-os.environ.setdefault("DATABASE_URL", "postgresql://postgres:password@localhost:5432/game")
+os.environ.setdefault(
+    "DATABASE_URL", "postgresql://postgres:password@localhost:5432/game"
+)
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-for-testing-only")
 os.environ.setdefault("ENVIRONMENT", "test")
