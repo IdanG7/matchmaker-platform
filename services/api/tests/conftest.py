@@ -6,8 +6,10 @@ This file sets up the test environment, including database initialization.
 
 import asyncio
 import os
+import uuid
 import pytest
 import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
 
 
 # Set test environment variables before importing the app
@@ -51,3 +53,53 @@ async def initialize_database():
             await db.disconnect()
         except Exception:
             pass
+
+
+@pytest_asyncio.fixture
+async def async_client():
+    """Create test HTTP client."""
+    from main import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
+
+
+@pytest_asyncio.fixture
+async def test_user_data():
+    """Generate unique test user data."""
+    unique_id = str(uuid.uuid4())[:8]
+    return {
+        "username": f"testuser_{unique_id}",
+        "email": f"test_{unique_id}@example.com",
+        "password": "SecurePassword123!",
+        "region": "us-west",
+    }
+
+
+@pytest_asyncio.fixture
+async def second_test_user_data():
+    """Generate second unique test user data."""
+    unique_id = str(uuid.uuid4())[:8]
+    return {
+        "username": f"testuser2_{unique_id}",
+        "email": f"test2_{unique_id}@example.com",
+        "password": "SecurePassword456!",
+        "region": "us-east",
+    }
+
+
+@pytest_asyncio.fixture
+async def tokens(async_client, test_user_data):
+    """Register a user and return their auth tokens."""
+    response = await async_client.post("/v1/auth/register", json=test_user_data)
+    assert response.status_code == 201
+    return response.json()
+
+
+@pytest_asyncio.fixture
+async def second_user_tokens(async_client, second_test_user_data):
+    """Register a second user and return their auth tokens."""
+    response = await async_client.post("/v1/auth/register", json=second_test_user_data)
+    assert response.status_code == 201
+    return response.json()

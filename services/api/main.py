@@ -8,9 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
-from routes import auth, profile
+from routes import auth, profile, party, websocket
 from middleware.rate_limit import RateLimitMiddleware
 from utils.database import db
+from utils import redis_cache, nats_events
+from utils.nats_client import SimpleNatsClient
 
 # Configure logging
 logging.basicConfig(
@@ -34,7 +36,41 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to connect to database: {e}")
         raise
 
+    # Startup - Initialize Redis connection
+    try:
+        from redis import Redis
+
+        redis_client = Redis.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            socket_timeout=5,
+            socket_connect_timeout=5,
+        )
+        redis_client.ping()
+        redis_cache.init_redis(redis_client)
+        logger.info("Redis connection initialized")
+    except Exception as e:
+        logger.warning(f"Failed to connect to Redis: {e}. Caching disabled.")
+
+    # Startup - Initialize NATS connection
+    nats_client = None
+    try:
+        nats_client = SimpleNatsClient(settings.nats_url)
+        await nats_client.connect()
+        nats_events.init_nats(nats_client)
+        logger.info("NATS connection initialized")
+    except Exception as e:
+        logger.warning(f"Failed to connect to NATS: {e}. Queue events disabled.")
+
     yield
+
+    # Shutdown - Close NATS connection
+    if nats_client and nats_client.is_connected():
+        try:
+            await nats_client.disconnect()
+            logger.info("NATS connection closed")
+        except Exception as e:
+            logger.error(f"Error closing NATS connection: {e}")
 
     # Shutdown - Close database connection pool
     logger.info(f"Shutting down {settings.service_name} service")
@@ -71,6 +107,8 @@ if settings.rate_limit_enabled:
 # Include routers
 app.include_router(auth.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(profile.router, prefix="/v1/profile", tags=["profile"])
+app.include_router(party.router, prefix="/v1/party", tags=["party"])
+app.include_router(websocket.router, prefix="/v1/ws", tags=["websocket"])
 
 
 @app.get("/health")
