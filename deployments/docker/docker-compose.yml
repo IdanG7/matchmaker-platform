@@ -71,22 +71,25 @@ services:
       - grafana_data:/var/lib/grafana
       - ../../ops/grafana-dashboards:/etc/grafana/provisioning/dashboards
 
-  # Application Services (to be implemented)
-  # api:
-  #   build:
-  #     context: ../../services/api
-  #     dockerfile: Dockerfile
-  #   env_file:
-  #     - ../../.env
-  #   ports:
-  #     - "8080:8080"
-  #   depends_on:
-  #     nats:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #     postgres:
-  #       condition: service_healthy
+  # Application Services
+  api:
+    build:
+      context: ../../services/api
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/game
+      REDIS_URL: redis://redis:6379
+      NATS_URL: nats://nats:4222
+      JWT_SECRET_KEY: dev-secret-key-change-in-production
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../../services/api:/app
 
   # matchmaker:
   #   build:

@@ -49,11 +49,28 @@ make seed
 make down
 ```
 
+## API Endpoints (Phase 2)
+
+The API service is running at `http://localhost:8080`
+
+**Authentication**:
+- `POST /v1/auth/register` - Register new user
+- `POST /v1/auth/login` - Login and get JWT tokens
+- `POST /v1/auth/refresh` - Refresh access token
+
+**Profile**:
+- `GET /v1/profile/me` - Get authenticated user profile (requires JWT)
+- `PATCH /v1/profile/me` - Update user profile (requires JWT)
+
+**Documentation**:
+- Swagger UI: `http://localhost:8080/docs`
+- ReDoc: `http://localhost:8080/redoc`
+
 ## Development Phases
 
 - [x] Phase 0: Repository Structure & Foundation
 - [x] Phase 1: Database & Core Infrastructure
-- [ ] Phase 2: Auth & Profile Service
+- [x] Phase 2: Auth & Profile Service
 - [ ] Phase 3: Lobby/Party Service
 - [ ] Phase 4: Matchmaker Core (C++)
 - [ ] Phase 5: Session Service

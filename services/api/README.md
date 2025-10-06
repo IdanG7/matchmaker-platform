@@ -11,8 +11,10 @@ FastAPI-based gateway providing REST and WebSocket endpoints.
 
 ## Implementation Status
 
-- [ ] Phase 2: Auth endpoints
-- [ ] Phase 2: Profile endpoints
+- [x] Phase 2: Auth endpoints (register, login, refresh)
+- [x] Phase 2: Profile endpoints (get, update)
+- [x] Phase 2: JWT authentication and validation
+- [x] Phase 2: Redis-based rate limiting
 - [ ] Phase 3: Party/lobby endpoints
 - [ ] Phase 4: Matchmaking endpoints
 - [ ] Phase 5: Session endpoints
