@@ -5,7 +5,6 @@ Redis caching utilities for party state.
 import json
 import logging
 from typing import Optional, Dict, Any
-from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +21,6 @@ def init_redis(redis_client):
 
 def get_redis():
     """Get the global Redis client."""
-    if _redis is None:
-        raise RuntimeError("Redis client not initialized. Call init_redis() first.")
     return _redis
 
 
@@ -41,8 +38,11 @@ def cache_party(party_id: str, party_data: dict, ttl: int = 300):
         party_data: Party data dictionary
         ttl: Time to live in seconds (default 5 minutes)
     """
+    redis = get_redis()
+    if redis is None:
+        return
+
     try:
-        redis = get_redis()
         key = f"party:{party_id}"
         redis.setex(key, ttl, json.dumps(party_data, default=str))
         logger.debug(f"Cached party {party_id} with TTL {ttl}s")
@@ -60,8 +60,11 @@ def get_cached_party(party_id: str) -> Optional[Dict[str, Any]]:
     Returns:
         Party data dictionary or None if not found/expired
     """
+    redis = get_redis()
+    if redis is None:
+        return None
+
     try:
-        redis = get_redis()
         key = f"party:{party_id}"
         data = redis.get(key)
         if data:
@@ -81,8 +84,11 @@ def invalidate_party_cache(party_id: str):
     Args:
         party_id: Party UUID
     """
+    redis = get_redis()
+    if redis is None:
+        return
+
     try:
-        redis = get_redis()
         key = f"party:{party_id}"
         redis.delete(key)
         logger.debug(f"Invalidated cache for party {party_id}")
@@ -106,8 +112,11 @@ def set_ready_check_timer(party_id: str, timeout: int = 30):
     Returns:
         True if timer set successfully, False otherwise
     """
+    redis = get_redis()
+    if redis is None:
+        return False
+
     try:
-        redis = get_redis()
         key = f"ready_check:{party_id}"
         redis.setex(key, timeout, "1")
         logger.info(f"Set ready check timer for party {party_id} ({timeout}s)")
@@ -127,8 +136,11 @@ def get_ready_check_ttl(party_id: str) -> Optional[int]:
     Returns:
         Remaining seconds or None if timer expired/not set
     """
+    redis = get_redis()
+    if redis is None:
+        return None
+
     try:
-        redis = get_redis()
         key = f"ready_check:{party_id}"
         ttl = redis.ttl(key)
         if ttl > 0:
@@ -146,8 +158,11 @@ def clear_ready_check_timer(party_id: str):
     Args:
         party_id: Party UUID
     """
+    redis = get_redis()
+    if redis is None:
+        return
+
     try:
-        redis = get_redis()
         key = f"ready_check:{party_id}"
         redis.delete(key)
         logger.debug(f"Cleared ready check timer for party {party_id}")
@@ -169,8 +184,11 @@ def cache_queue_position(party_id: str, position: int, ttl: int = 60):
         position: Position in queue
         ttl: Time to live in seconds (default 1 minute)
     """
+    redis = get_redis()
+    if redis is None:
+        return
+
     try:
-        redis = get_redis()
         key = f"queue_pos:{party_id}"
         redis.setex(key, ttl, str(position))
         logger.debug(f"Cached queue position {position} for party {party_id}")
@@ -188,8 +206,11 @@ def get_cached_queue_position(party_id: str) -> Optional[int]:
     Returns:
         Queue position or None if not found/expired
     """
+    redis = get_redis()
+    if redis is None:
+        return None
+
     try:
-        redis = get_redis()
         key = f"queue_pos:{party_id}"
         position = redis.get(key)
         if position:
@@ -214,8 +235,11 @@ def track_player_session(player_id: str, party_id: str, ttl: int = 3600):
         party_id: Party UUID
         ttl: Time to live in seconds (default 1 hour)
     """
+    redis = get_redis()
+    if redis is None:
+        return
+
     try:
-        redis = get_redis()
         key = f"player_session:{player_id}"
         redis.setex(key, ttl, party_id)
         logger.debug(f"Tracked session for player {player_id} in party {party_id}")
@@ -233,8 +257,11 @@ def get_player_session(player_id: str) -> Optional[str]:
     Returns:
         Party UUID or None if not in a party/session expired
     """
+    redis = get_redis()
+    if redis is None:
+        return None
+
     try:
-        redis = get_redis()
         key = f"player_session:{player_id}"
         party_id = redis.get(key)
         return party_id
@@ -250,8 +277,11 @@ def clear_player_session(player_id: str):
     Args:
         player_id: Player UUID
     """
+    redis = get_redis()
+    if redis is None:
+        return
+
     try:
-        redis = get_redis()
         key = f"player_session:{player_id}"
         redis.delete(key)
         logger.debug(f"Cleared session for player {player_id}")

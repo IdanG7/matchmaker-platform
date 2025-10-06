@@ -3,16 +3,11 @@ Party/Lobby management endpoints.
 """
 
 import logging
-from typing import List
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
-from asyncpg import UniqueViolationError
 
 from models.schemas import (
     CreatePartyRequest,
     PartyResponse,
-    PartyMemberResponse,
-    InvitePlayerRequest,
     QueueRequest,
     ReadyCheckResponse,
 )
@@ -83,7 +78,12 @@ async def _get_party_with_members(conn, party_id: str) -> dict:
     )
 
     party_dict = dict(party)
-    party_dict["members"] = [dict(m) for m in members]
+    # Convert UUIDs to strings for Pydantic
+    party_dict["id"] = str(party_dict["id"])
+    party_dict["leader_id"] = str(party_dict["leader_id"])
+    party_dict["members"] = [
+        {**dict(m), "player_id": str(m["player_id"])} for m in members
+    ]
     return party_dict
 
 
