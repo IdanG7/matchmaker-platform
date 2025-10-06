@@ -77,6 +77,7 @@ async def update_my_profile(
         params.append(player_id)
 
         # Execute update
+        # nosec B608 - column names are controlled, values are parameterized
         query = f"""
             UPDATE game.player
             SET {', '.join(update_fields)}

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     debug: bool = True
 
     # Server
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # nosec B104 - binding to all interfaces is intentional
     port: int = 8080
 
     # Database

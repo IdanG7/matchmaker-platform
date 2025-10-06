@@ -9,12 +9,12 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from utils.auth import verify_access_token
 from utils.database import get_db_connection
 
-# Security scheme for JWT Bearer tokens
-security = HTTPBearer()
+# Security scheme for JWT Bearer tokens (auto_error=False to handle missing auth)
+security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     conn=Depends(get_db_connection),
 ) -> dict:
     """
@@ -32,6 +32,13 @@ async def get_current_user(
     Raises:
         HTTPException: If token is invalid or user not found
     """
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     token = credentials.credentials
 
     # Verify token
