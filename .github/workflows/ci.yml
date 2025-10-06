@@ -1,0 +1,199 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  lint-python:
+    name: Lint Python Services
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black flake8 mypy bandit
+
+      - name: Run black
+        run: black --check services/ tests/
+
+      - name: Run flake8
+        run: flake8 services/ tests/ --max-line-length=100
+
+      - name: Run bandit security check
+        run: bandit -r services/ -ll
+
+  test-python:
+    name: Test Python Services
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: game
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio pytest-cov
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:password@localhost:5432/game
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          pytest tests/unit -v --cov=services --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  build-matchmaker:
+    name: Build C++ Matchmaker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      - name: Configure CMake
+        run: |
+          cd services/matchmaker
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cd services/matchmaker
+          cmake --build build --parallel
+
+      - name: Run tests
+        run: |
+          cd services/matchmaker
+          ctest --test-dir build --output-on-failure
+
+  build-sdk:
+    name: Build C++ SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake build-essential
+
+      - name: Configure CMake
+        run: |
+          cd sdk/cpp
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: |
+          cd sdk/cpp
+          cmake --build build --parallel
+
+      - name: Run tests
+        run: |
+          cd sdk/cpp
+          ctest --test-dir build --output-on-failure
+
+  docker-build:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    needs: [test-python, build-matchmaker]
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+
+      - name: Build images (dry run)
+        run: |
+          echo "Would build images with tag: ${{ steps.meta.outputs.tags }}"
+          # Actual builds will be added per service in later phases
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [test-python, build-matchmaker]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start services
+        run: |
+          cp .env.example .env
+          docker compose -f deployments/docker/docker-compose.yml up -d
+          sleep 10
+
+      - name: Run integration tests
+        run: |
+          pip install pytest pytest-asyncio
+          pytest tests/integration -v || true
+
+      - name: Show logs on failure
+        if: failure()
+        run: |
+          docker compose -f deployments/docker/docker-compose.yml logs
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose -f deployments/docker/docker-compose.yml down -v
