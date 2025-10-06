@@ -57,7 +57,7 @@ TEST(ClientTest, GetProfileReturnsEmptyProfile) {
     game::Client client("http://localhost:8080", "test_token");
     auto profile = client.get_profile();
     // Stub implementation returns empty profile
-    EXPECT_TRUE(profile.player_id.empty());
+    EXPECT_TRUE(profile.id.empty());
 }
 
 TEST(ClientTest, CreatePartyReturnsEmptyParty) {
