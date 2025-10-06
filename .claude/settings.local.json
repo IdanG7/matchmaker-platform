@@ -13,7 +13,11 @@
       "Bash(source:*)",
       "Bash(PYTHONPATH=. python3 -m pytest tests/test_auth_utils.py -v)",
       "Bash(curl:*)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjMmM4OTNjYS0wNDI5LTQ5N2EtYWU3Zi1mNDdiYjNkYTdkZjQiLCJ1c2VybmFtZSI6InRlc3R1c2VyIiwiZXhwIjoxNzU5NzcyNjEzLCJ0eXBlIjoiYWNjZXNzIn0.VQ2Uz1qPrM65bpqYQICrwSIhGPxzaMKpKJACNb6hjPI\")"
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjMmM4OTNjYS0wNDI5LTQ5N2EtYWU3Zi1mNDdiYjNkYTdkZjQiLCJ1c2VybmFtZSI6InRlc3R1c2VyIiwiZXhwIjoxNzU5NzcyNjEzLCJ0eXBlIjoiYWNjZXNzIn0.VQ2Uz1qPrM65bpqYQICrwSIhGPxzaMKpKJACNb6hjPI\")",
+      "Bash(black:*)",
+      "Bash(pipx install:*)",
+      "Bash(~/.local/bin/black services/ tests/)",
+      "Bash(~/.local/bin/black services/api/tests/)"
     ],
     "deny": [],
     "ask": []

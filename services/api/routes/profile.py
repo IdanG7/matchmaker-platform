@@ -1,6 +1,7 @@
 """
 Profile management endpoints.
 """
+
 import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 
@@ -13,9 +14,7 @@ router = APIRouter()
 
 
 @router.get("/me", response_model=ProfileResponse)
-async def get_my_profile(
-    current_user: dict = Depends(get_current_user)
-):
+async def get_my_profile(current_user: dict = Depends(get_current_user)):
     """
     Get the authenticated user's profile.
 
@@ -23,18 +22,18 @@ async def get_my_profile(
     """
     try:
         return ProfileResponse(
-            player_id=str(current_user['id']),
-            username=current_user['username'],
-            email=current_user['email'],
-            region=current_user['region'],
-            mmr=current_user['mmr'],
-            created_at=current_user['created_at']
+            player_id=str(current_user["id"]),
+            username=current_user["username"],
+            email=current_user["email"],
+            region=current_user["region"],
+            mmr=current_user["mmr"],
+            created_at=current_user["created_at"],
         )
     except Exception as e:
         logger.error(f"Get profile error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to fetch profile"
+            detail="Failed to fetch profile",
         )
 
 
@@ -42,7 +41,7 @@ async def get_my_profile(
 async def update_my_profile(
     updates: UpdateProfileRequest,
     current_user: dict = Depends(get_current_user),
-    conn = Depends(get_db_connection)
+    conn=Depends(get_db_connection),
 ):
     """
     Update the authenticated user's profile.
@@ -51,7 +50,7 @@ async def update_my_profile(
     Only specified fields will be updated.
     """
     try:
-        player_id = current_user['id']
+        player_id = current_user["id"]
 
         # Build dynamic update query based on provided fields
         update_fields = []
@@ -66,12 +65,12 @@ async def update_my_profile(
         # If no fields to update, return current profile
         if not update_fields:
             return ProfileResponse(
-                player_id=str(current_user['id']),
-                username=current_user['username'],
-                email=current_user['email'],
-                region=current_user['region'],
-                mmr=current_user['mmr'],
-                created_at=current_user['created_at']
+                player_id=str(current_user["id"]),
+                username=current_user["username"],
+                email=current_user["email"],
+                region=current_user["region"],
+                mmr=current_user["mmr"],
+                created_at=current_user["created_at"],
             )
 
         # Add player_id to params
@@ -89,19 +88,20 @@ async def update_my_profile(
 
         if not result:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Profile not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found"
             )
 
-        logger.info(f"Profile updated for user: {current_user['username']} (ID: {player_id})")
+        logger.info(
+            f"Profile updated for user: {current_user['username']} (ID: {player_id})"
+        )
 
         return ProfileResponse(
-            player_id=str(result['id']),
-            username=result['username'],
-            email=result['email'],
-            region=result['region'],
-            mmr=result['mmr'],
-            created_at=result['created_at']
+            player_id=str(result["id"]),
+            username=result["username"],
+            email=result["email"],
+            region=result["region"],
+            mmr=result["mmr"],
+            created_at=result["created_at"],
         )
 
     except HTTPException:
@@ -110,5 +110,5 @@ async def update_my_profile(
         logger.error(f"Update profile error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile"
+            detail="Failed to update profile",
         )

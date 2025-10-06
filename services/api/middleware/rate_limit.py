@@ -1,6 +1,7 @@
 """
 Rate limiting middleware using Redis.
 """
+
 import time
 import logging
 from typing import Optional
@@ -41,7 +42,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 self.redis_client = redis.from_url(
                     settings.redis_url,
                     decode_responses=True,
-                    max_connections=settings.redis_max_connections
+                    max_connections=settings.redis_max_connections,
                 )
             except Exception as e:
                 logger.error(f"Failed to connect to Redis for rate limiting: {e}")
@@ -67,8 +68,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         status_code=429,
                         content={
                             "error": "rate_limit_exceeded",
-                            "message": f"Rate limit of {self.rate_limit} requests per minute exceeded"
-                        }
+                            "message": f"Rate limit of {self.rate_limit} requests per minute exceeded",
+                        },
                     )
                 # Increment counter
                 await self.redis_client.incr(key)

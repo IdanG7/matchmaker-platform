@@ -1,6 +1,7 @@
 """
 Unit tests for authentication utilities.
 """
+
 import pytest
 from datetime import datetime, timedelta
 
@@ -11,7 +12,7 @@ from utils.auth import (
     create_refresh_token,
     decode_token,
     verify_access_token,
-    verify_refresh_token
+    verify_refresh_token,
 )
 
 

@@ -1,6 +1,7 @@
 """
 Main FastAPI application entry point.
 """
+
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -13,8 +14,7 @@ from utils.database import db
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # CORS middleware
@@ -79,15 +79,11 @@ async def health_check():
     return {
         "status": "healthy",
         "service": settings.service_name,
-        "environment": settings.environment
+        "environment": settings.environment,
     }
 
 
 @app.get("/")
 async def root():
     """Root endpoint."""
-    return {
-        "service": "Game Services API",
-        "version": "1.0.0",
-        "docs": "/docs"
-    }
+    return {"service": "Game Services API", "version": "1.0.0", "docs": "/docs"}

@@ -124,13 +124,18 @@ class NatsClient:
 
         try:
             await self._client.subscribe(subject, queue=queue, cb=message_handler)
-            logger.info(f"Subscribed to {subject}" + (f" (queue: {queue})" if queue else ""))
+            logger.info(
+                f"Subscribed to {subject}" + (f" (queue: {queue})" if queue else "")
+            )
         except Exception as e:
             logger.error(f"Failed to subscribe to {subject}: {e}")
             raise
 
     async def subscribe_sync(
-        self, subject: str, callback: Callable[[Dict[str, Any]], Dict[str, Any]], queue: str = ""
+        self,
+        subject: str,
+        callback: Callable[[Dict[str, Any]], Dict[str, Any]],
+        queue: str = "",
     ):
         """
         Subscribe to a NATS subject with synchronous reply (for RPC handlers).
@@ -156,7 +161,9 @@ class NatsClient:
 
         try:
             await self._client.subscribe(subject, queue=queue, cb=message_handler)
-            logger.info(f"Subscribed to RPC {subject}" + (f" (queue: {queue})" if queue else ""))
+            logger.info(
+                f"Subscribed to RPC {subject}" + (f" (queue: {queue})" if queue else "")
+            )
         except Exception as e:
             logger.error(f"Failed to subscribe to RPC {subject}: {e}")
             raise

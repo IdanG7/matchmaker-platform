@@ -1,6 +1,7 @@
 """
 FastAPI dependencies for authentication and authorization.
 """
+
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -14,7 +15,7 @@ security = HTTPBearer()
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    conn = Depends(get_db_connection)
+    conn=Depends(get_db_connection),
 ) -> dict:
     """
     Dependency to get the current authenticated user.
@@ -54,7 +55,7 @@ async def get_current_user(
     user = await conn.fetchrow(
         "SELECT id, username, email, region, mmr, created_at "
         "FROM game.player WHERE id = $1",
-        player_id
+        player_id,
     )
 
     if not user:
@@ -69,7 +70,7 @@ async def get_current_user(
 
 async def get_optional_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    conn = Depends(get_db_connection)
+    conn=Depends(get_db_connection),
 ) -> Optional[dict]:
     """
     Dependency to get the current user if authenticated, None otherwise.

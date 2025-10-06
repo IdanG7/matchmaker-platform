@@ -1,6 +1,7 @@
 """
 Database connection and query utilities.
 """
+
 import asyncpg
 from typing import Optional
 from contextlib import asynccontextmanager
@@ -19,10 +20,7 @@ class Database:
     async def connect(self):
         """Create database connection pool."""
         self.pool = await asyncpg.create_pool(
-            settings.database_url,
-            min_size=5,
-            max_size=20,
-            command_timeout=60
+            settings.database_url, min_size=5, max_size=20, command_timeout=60
         )
 
     async def disconnect(self):

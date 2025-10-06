@@ -76,11 +76,18 @@ jobs:
           pip install pytest pytest-asyncio pytest-cov
           pip install -r services/api/requirements.txt
 
+      - name: Initialize database schema
+        env:
+          PGPASSWORD: password
+        run: |
+          psql -h localhost -U postgres -d game -f db/migrations/init.sql
+
       - name: Run tests
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/game
           REDIS_URL: redis://localhost:6379/0
           PYTHONPATH: services/api
+          JWT_SECRET_KEY: test-secret-key-for-ci-testing
         run: |
           pytest services/api/tests -v --cov=services/api --cov-report=xml
 
