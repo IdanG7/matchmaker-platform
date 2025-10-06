@@ -19,6 +19,8 @@ SDK::SDK(const std::string& base_url) : impl_(std::make_unique<Impl>()) {
 SDK::~SDK() = default;
 
 AuthResult SDK::authenticate(const std::string& email, const std::string& password) {
+    (void)email;
+    (void)password;
     // TODO: Implement
     return AuthResult{false, "", "", "Not implemented"};
 }

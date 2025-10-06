@@ -74,13 +74,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pytest pytest-asyncio pytest-cov
+          pip install -r services/api/requirements.txt
 
       - name: Run tests
         env:
           DATABASE_URL: postgresql://postgres:password@localhost:5432/game
           REDIS_URL: redis://localhost:6379/0
+          PYTHONPATH: services/api
         run: |
-          pytest tests/unit -v --cov=services --cov-report=xml
+          pytest services/api/tests -v --cov=services/api --cov-report=xml
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
