@@ -19,7 +19,9 @@
       "Bash(~/.local/bin/black services/ tests/)",
       "Bash(~/.local/bin/black services/api/tests/)",
       "Bash(~/.local/bin/black:*)",
-      "Bash(python -m pytest tests/test_party.py -v)"
+      "Bash(python -m pytest tests/test_party.py -v)",
+      "Bash(cmake:*)",
+      "Bash(ctest:*)"
     ],
     "deny": [],
     "ask": []

@@ -18,21 +18,23 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 endif()
 
-# Dependencies (to be added as needed)
-# find_package(hiredis REQUIRED)
-# find_package(nats REQUIRED)
-# find_package(spdlog REQUIRED)
-# find_package(nlohmann_json REQUIRED)
+# Dependencies
+find_package(spdlog REQUIRED)
+find_package(nlohmann_json REQUIRED)
+
+# Note: hiredis and nats.c will be added via FetchContent for easier cross-platform builds
 
 # Source files
 set(SOURCES
     src/main.cpp
-    # Add more source files as implemented
+    src/queue_manager.cpp
+    src/team_builder.cpp
 )
 
 set(HEADERS
     include/matchmaker/matchmaker.hpp
-    # Add more headers as implemented
+    include/matchmaker/queue_manager.hpp
+    include/matchmaker/team_builder.hpp
 )
 
 # Main executable
@@ -43,14 +45,12 @@ target_include_directories(matchmaker
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# Link libraries (uncomment as dependencies are added)
-# target_link_libraries(matchmaker
-#     PRIVATE
-#         hiredis::hiredis
-#         nats::nats
-#         spdlog::spdlog
-#         nlohmann_json::nlohmann_json
-# )
+# Link libraries
+target_link_libraries(matchmaker
+    PRIVATE
+        spdlog::spdlog
+        nlohmann_json::nlohmann_json
+)
 
 # Tests
 if(BUILD_TESTS)

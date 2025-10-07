@@ -11,8 +11,9 @@ FetchContent_MakeAvailable(googletest)
 
 # Test executable
 add_executable(matchmaker_tests
-    test_main.cpp
-    # Add test files as implemented
+    test_matchmaking.cpp
+    ../src/queue_manager.cpp
+    ../src/team_builder.cpp
 )
 
 target_include_directories(matchmaker_tests
@@ -24,6 +25,8 @@ target_link_libraries(matchmaker_tests
     PRIVATE
         GTest::gtest
         GTest::gtest_main
+        spdlog::spdlog
+        nlohmann_json::nlohmann_json
 )
 
 # Discover tests
