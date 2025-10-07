@@ -28,7 +28,11 @@
       "Bash(flake8:*)",
       "Bash(PYTHONPATH=. python3 -m pytest tests/ -v)",
       "Bash(~/.local/bin/bandit -r services/api -ll)",
-      "Bash(~/.local/bin/bandit -r services/api --exclude services/api/venv -f json)"
+      "Bash(~/.local/bin/bandit -r services/api --exclude services/api/venv -f json)",
+      "Bash(~/.local/bin/bandit -r services/api --exclude services/api/venv -ll -f json)",
+      "Bash(~/.local/bin/bandit:*)",
+      "Bash(echo \"Exit code: $?\")",
+      "Read(//private/tmp/**)"
     ],
     "deny": [],
     "ask": []

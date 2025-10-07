@@ -55,23 +55,23 @@ async def get_match_history(
 
         pool = await get_db_pool()
         async with pool.acquire() as conn:
-            # Build query
-            where_clauses = ["player_id = $1"]
+            # Build query with parameterized placeholders
             params = [player_id]
 
             if mode:
-                where_clauses.append(f"mode = ${len(params) + 1}")
+                count_query = """
+                    SELECT COUNT(*) as total
+                    FROM game.match_history
+                    WHERE player_id = $1 AND mode = $2
+                """
                 params.append(mode)
+            else:
+                count_query = """
+                    SELECT COUNT(*) as total
+                    FROM game.match_history
+                    WHERE player_id = $1
+                """
 
-            where_clause = " AND ".join(where_clauses)
-
-            # Get total count
-            # Safe: where_clause contains only hardcoded parameterized placeholders
-            count_query = f"""  # nosec B608
-                SELECT COUNT(*) as total
-                FROM game.match_history
-                WHERE {where_clause}
-            """
             count_result = await conn.fetchrow(count_query, *params)
             total = count_result["total"]
 
@@ -79,14 +79,22 @@ async def get_match_history(
             offset = (page - 1) * page_size
             params.extend([page_size, offset])
 
-            # Safe: where_clause contains only hardcoded parameterized placeholders
-            entries_query = f"""  # nosec B608
-                SELECT match_id, played_at, mode, result, mmr_change, team, stats
-                FROM game.match_history
-                WHERE {where_clause}
-                ORDER BY played_at DESC
-                LIMIT ${len(params) - 1} OFFSET ${len(params)}
-            """
+            if mode:
+                entries_query = """
+                    SELECT match_id, played_at, mode, result, mmr_change, team, stats
+                    FROM game.match_history
+                    WHERE player_id = $1 AND mode = $2
+                    ORDER BY played_at DESC
+                    LIMIT $3 OFFSET $4
+                """
+            else:
+                entries_query = """
+                    SELECT match_id, played_at, mode, result, mmr_change, team, stats
+                    FROM game.match_history
+                    WHERE player_id = $1
+                    ORDER BY played_at DESC
+                    LIMIT $2 OFFSET $3
+                """
 
             rows = await conn.fetch(entries_query, *params)
 
