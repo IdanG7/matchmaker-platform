@@ -72,7 +72,10 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return dict(user)
+    # Convert to dict and ensure id is a string for consistency
+    user_dict = dict(user)
+    user_dict["id"] = str(user_dict["id"])
+    return user_dict
 
 
 async def get_optional_user(

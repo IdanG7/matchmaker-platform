@@ -65,9 +65,9 @@ async def async_client():
         yield ac
 
 
-@pytest_asyncio.fixture
-async def test_user_data():
-    """Generate unique test user data."""
+@pytest.fixture(scope="function")
+def test_user_data():
+    """Generate unique test user data (fresh for each test)."""
     unique_id = str(uuid.uuid4())[:8]
     return {
         "username": f"testuser_{unique_id}",
@@ -77,9 +77,9 @@ async def test_user_data():
     }
 
 
-@pytest_asyncio.fixture
-async def second_test_user_data():
-    """Generate second unique test user data."""
+@pytest.fixture(scope="function")
+def second_test_user_data():
+    """Generate second unique test user data (fresh for each test)."""
     unique_id = str(uuid.uuid4())[:8]
     return {
         "username": f"testuser2_{unique_id}",
@@ -89,17 +89,17 @@ async def second_test_user_data():
     }
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="function")
 async def tokens(async_client, test_user_data):
-    """Register a user and return their auth tokens."""
+    """Register a user and return their auth tokens (fresh for each test)."""
     response = await async_client.post("/v1/auth/register", json=test_user_data)
     assert response.status_code == 201
     return response.json()
 
 
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(scope="function")
 async def second_user_tokens(async_client, second_test_user_data):
-    """Register a second user and return their auth tokens."""
+    """Register a second user and return their auth tokens (fresh for each test)."""
     response = await async_client.post("/v1/auth/register", json=second_test_user_data)
     assert response.status_code == 201
     return response.json()

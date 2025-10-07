@@ -155,6 +155,14 @@ class TestPartyEndpoints:
             json={"max_size": 1},
             headers={"Authorization": f"Bearer {tokens['access_token']}"},
         )
+
+        # Debug: check response status
+        if create_response.status_code != 201:
+            print(
+                f"Create party failed: {create_response.status_code} - {create_response.json()}"
+            )
+
+        assert create_response.status_code == 201
         party_id = create_response.json()["id"]
 
         # Try to join when full
