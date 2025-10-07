@@ -4,9 +4,7 @@ Tests for leaderboard and match history endpoints.
 
 import pytest
 import uuid
-import json
 from datetime import datetime, timedelta
-from httpx import AsyncClient
 from utils.mmr_calculator import calculate_mmr_change, get_season_id
 
 
@@ -109,7 +107,7 @@ class TestMatchHistory:
         self, async_client, tokens, setup_match_history
     ):
         """Test match history filtering by mode."""
-        await setup_match_history
+        data = await setup_match_history
 
         response = await async_client.get(
             "/v1/matches/history?mode=ranked",

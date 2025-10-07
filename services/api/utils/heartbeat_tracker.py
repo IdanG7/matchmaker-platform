@@ -4,7 +4,6 @@ Heartbeat Tracker - Redis-based game server heartbeat monitoring.
 
 import logging
 from typing import Optional
-from datetime import timedelta
 from utils.redis_cache import get_redis
 
 logger = logging.getLogger(__name__)

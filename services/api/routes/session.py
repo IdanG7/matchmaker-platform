@@ -4,7 +4,6 @@ Session API routes - Game session management endpoints.
 
 import logging
 import json
-from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, status
 from utils.database import get_db_pool
@@ -19,7 +18,6 @@ from utils.heartbeat_tracker import track_heartbeat, clear_heartbeat
 from utils.session_manager import (
     SessionLifecycleManager,
     get_server_allocator,
-    verify_session_token,
 )
 from utils.mmr_calculator import calculate_mmr_change, get_season_id
 

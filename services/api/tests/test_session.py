@@ -5,8 +5,6 @@ Tests for session management endpoints and functionality.
 import pytest
 import uuid
 import json
-from datetime import datetime
-from httpx import AsyncClient
 from models.schemas import SessionStatus
 from utils.session_manager import (
     generate_session_token,

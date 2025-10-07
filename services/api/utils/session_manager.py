@@ -5,9 +5,7 @@ Session Manager - Game session allocation and lifecycle management.
 import hmac
 import hashlib
 import logging
-import secrets
 from typing import Optional, List, Dict
-from datetime import datetime, timedelta
 from models.schemas import SessionStatus
 
 logger = logging.getLogger(__name__)

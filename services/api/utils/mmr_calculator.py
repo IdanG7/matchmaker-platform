@@ -3,7 +3,7 @@ MMR Calculator - Simple Elo-based MMR calculation.
 """
 
 import logging
-from typing import List, Tuple
+from typing import List
 
 logger = logging.getLogger(__name__)
 

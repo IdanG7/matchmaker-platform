@@ -6,13 +6,11 @@ Listens for matches created by the matchmaker and allocates game sessions.
 
 import logging
 import json
-from typing import List
 from datetime import datetime
 from utils.database import get_db_pool
 from utils.session_manager import (
     get_server_allocator,
     generate_session_token,
-    SessionLifecycleManager,
 )
 from models.schemas import SessionStatus
 

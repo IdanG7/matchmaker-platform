@@ -43,3 +43,8 @@ async def get_db_connection():
     """Dependency for getting database connection."""
     async with db.acquire() as conn:
         yield conn
+
+
+async def get_db_pool():
+    """Get the database connection pool."""
+    return db.pool
