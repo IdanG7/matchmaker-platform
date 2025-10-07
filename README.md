@@ -49,18 +49,28 @@ make seed
 make down
 ```
 
-## API Endpoints (Phase 2)
+## API Endpoints
 
 The API service is running at `http://localhost:8080`
 
-**Authentication**:
+**Authentication** (Phase 2):
 - `POST /v1/auth/register` - Register new user
 - `POST /v1/auth/login` - Login and get JWT tokens
 - `POST /v1/auth/refresh` - Refresh access token
 
-**Profile**:
+**Profile** (Phase 2):
 - `GET /v1/profile/me` - Get authenticated user profile (requires JWT)
 - `PATCH /v1/profile/me` - Update user profile (requires JWT)
+
+**Party/Lobby** (Phase 3):
+- `POST /v1/party` - Create a new party
+- `GET /v1/party/{id}` - Get party details
+- `POST /v1/party/{id}/join` - Join a party
+- `DELETE /v1/party/{id}/leave` - Leave a party
+- `POST /v1/party/{id}/ready` - Toggle ready status
+- `POST /v1/party/queue` - Enter matchmaking queue
+- `DELETE /v1/party/queue` - Leave matchmaking queue
+- `WS /v1/ws/party/{party_id}` - WebSocket for real-time party updates
 
 **Documentation**:
 - Swagger UI: `http://localhost:8080/docs`
@@ -71,8 +81,8 @@ The API service is running at `http://localhost:8080`
 - [x] Phase 0: Repository Structure & Foundation
 - [x] Phase 1: Database & Core Infrastructure
 - [x] Phase 2: Auth & Profile Service
-- [ ] Phase 3: Lobby/Party Service
-- [ ] Phase 4: Matchmaker Core (C++)
+- [x] Phase 3: Lobby/Party Service
+- [x] Phase 4: Matchmaker Core (C++)
 - [ ] Phase 5: Session Service
 - [ ] Phase 6: Leaderboard & Match History
 - [ ] Phase 7: Client SDK (C++)
