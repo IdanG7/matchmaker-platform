@@ -130,4 +130,26 @@ Result<json> HTTPClient::del(const std::string& path) {
     return handle_response(res);
 }
 
+Result<json> HTTPClient::post(const std::string &path) {
+    httplib::Client client(base_url_);
+    client.set_read_timeout(timeout_seconds_, 0);
+
+    auto res = client.Post(path.c_str(), get_headers(), "", "application/json");
+    return handle_response(res);
+}
+
+Result<json> HTTPClient::put(const std::string &path, const json &body) {
+    httplib::Client client(base_url_);
+    client.set_read_timeout(timeout_seconds_, 0);
+
+    auto res = client.Put(
+        path.c_str(),
+        get_headers(),
+        body.dump(),
+        "application/json"
+    );
+
+    return handle_response(res);
+}
+
 } // namespace matchmaker

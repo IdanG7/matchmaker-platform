@@ -22,7 +22,9 @@ public:
     // HTTP methods
     Result<json> get(const std::string& path, const httplib::Params& params = {});
     Result<json> post(const std::string& path, const json& body);
+    Result<json> post(const std::string& path);
     Result<json> patch(const std::string& path, const json& body);
+    Result<json> put(const std::string& path, const json& body);
     Result<json> del(const std::string& path);
 
     // Timeout configuration

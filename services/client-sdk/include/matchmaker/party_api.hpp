@@ -62,14 +62,14 @@ public:
      * @param request Queue parameters (mode, team_size)
      * @return Success or error
      */
-    Result<void> enter_queue(const QueueRequest& request);
+    Result<PartyInfo> enter_queue(const std::string& party_id, const QueueRequest& request);
 
     /**
      * Leave matchmaking queue.
      *
      * @return Success or error
      */
-    Result<void> leave_queue();
+    Result<PartyInfo> leave_queue(const std::string& party_id);
 
 private:
     std::shared_ptr<HTTPClient> http_;

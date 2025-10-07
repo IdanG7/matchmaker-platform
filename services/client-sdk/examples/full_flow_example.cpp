@@ -102,6 +102,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::string party_id = party_result.value.party_id;
+    std::string leader_id = party_result.value.leader_id;
     std::cout << "✓ Party created: " << party_id << "\n";
     std::cout << "  Leader: " << party_result.value.leader_id << "\n";
     std::cout << "  Size: " << party_result.value.size << "/" << party_result.value.max_size << "\n\n";
@@ -122,13 +123,20 @@ int main(int argc, char* argv[]) {
     // to expose auth token. For now, this is a placeholder showing the flow.
 
     // 4. Set ready status
-    std::cout << "4. Setting ready status...\n";
-    auto ready_result = client.party().set_ready(party_id, true);
-    if (!ready_result) {
-        std::cerr << "Set ready failed: " << ready_result.error.to_string() << "\n";
+    std::cout << "4. Party status check...\n";
+    auto party_status = client.party().get_party(party_id);
+    if (!party_status) {
+        std::cerr << "Fetch party failed: " << party_status.error.to_string() << "\n";
         return 1;
     }
-    std::cout << "✓ Ready status set\n\n";
+    bool is_ready = false;
+    for (const auto& member : party_status.value.members) {
+        if (member.player_id == leader_id) {
+            is_ready = member.is_ready;
+            break;
+        }
+    }
+    std::cout << "✓ Leader ready status: " << (is_ready ? "Ready" : "Not Ready") << "\n\n";
 
     // 5. Enter matchmaking queue
     std::cout << "5. Entering matchmaking queue...\n";
@@ -136,7 +144,7 @@ int main(int argc, char* argv[]) {
     queue_req.mode = "ranked";
     queue_req.team_size = 1;  // Solo queue
 
-    auto queue_result = client.party().enter_queue(queue_req);
+    auto queue_result = client.party().enter_queue(party_id, queue_req);
     if (!queue_result) {
         std::cerr << "Enter queue failed: " << queue_result.error.to_string() << "\n";
         return 1;
@@ -185,7 +193,7 @@ int main(int argc, char* argv[]) {
     } else {
         // Leave queue if no match found
         std::cout << "\n7. Leaving queue...\n";
-        auto leave_result = client.party().leave_queue();
+        auto leave_result = client.party().leave_queue(party_id);
         if (leave_result) {
             std::cout << "✓ Left queue\n";
         }
