@@ -8,7 +8,7 @@ import logging
 import json
 from typing import List
 from datetime import datetime
-from models.database import get_db_pool
+from utils.database import get_db_pool
 from utils.session_manager import (
     get_server_allocator,
     generate_session_token,
@@ -173,4 +173,3 @@ async def start_match_consumer(nats_client):
     # Subscribe to match.found events
     await nats_client.subscribe(subject, message_handler)
     logger.info(f"Match consumer started, listening on '{subject}'")
-

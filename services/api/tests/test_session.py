@@ -23,7 +23,7 @@ class TestSessionEndpoints:
     async def setup_match(self, async_client, tokens):
         """Create a match for testing."""
         # Create match in database
-        from models.database import get_db_pool
+        from utils.database import get_db_pool
 
         pool = await get_db_pool()
         async with pool.acquire() as conn:
@@ -84,7 +84,9 @@ class TestSessionEndpoints:
         assert data["mode"] == "ranked"
         assert data["region"] == "us-west"
 
-    async def test_get_session_not_participant(self, async_client, second_user_tokens, setup_match):
+    async def test_get_session_not_participant(
+        self, async_client, second_user_tokens, setup_match
+    ):
         """Test getting session as non-participant returns 403."""
         match_data = await setup_match
 
@@ -113,14 +115,18 @@ class TestSessionEndpoints:
 
         response = await async_client.post(
             f"/v1/session/{match_data['match_id']}/heartbeat",
-            json={"match_id": match_data["match_id"], "server_id": "server_1", "active_players": 10},
+            json={
+                "match_id": match_data["match_id"],
+                "server_id": "server_1",
+                "active_players": 10,
+            },
         )
 
         assert response.status_code == 204
 
     async def test_heartbeat_inactive_match(self, async_client):
         """Test heartbeat on inactive match returns error."""
-        from models.database import get_db_pool
+        from utils.database import get_db_pool
 
         pool = await get_db_pool()
         async with pool.acquire() as conn:
@@ -136,7 +142,11 @@ class TestSessionEndpoints:
 
             response = await async_client.post(
                 f"/v1/session/{match_id}/heartbeat",
-                json={"match_id": match_id, "server_id": "server_1", "active_players": 0},
+                json={
+                    "match_id": match_id,
+                    "server_id": "server_1",
+                    "active_players": 0,
+                },
             )
 
             assert response.status_code == 400
@@ -164,7 +174,7 @@ class TestSessionEndpoints:
         assert data["status"] == "success"
 
         # Verify match status updated
-        from models.database import get_db_pool
+        from utils.database import get_db_pool
 
         pool = await get_db_pool()
         async with pool.acquire() as conn:
@@ -271,7 +281,7 @@ class TestMatchConsumer:
 
     async def test_handle_match_found(self):
         """Test handling match.found event."""
-        from models.database import get_db_pool
+        from utils.database import get_db_pool
         from utils.session_manager import init_session_secret, init_server_allocator
 
         # Initialize session manager
@@ -317,7 +327,9 @@ class TestMatchConsumer:
 
         # Verify match created
         async with pool.acquire() as conn:
-            match = await conn.fetchrow("SELECT * FROM game.match WHERE id = $1", match_id)
+            match = await conn.fetchrow(
+                "SELECT * FROM game.match WHERE id = $1", match_id
+            )
 
             assert match is not None
             assert match["status"] == SessionStatus.ACTIVE

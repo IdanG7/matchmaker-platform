@@ -7,7 +7,7 @@ import json
 from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Depends, status
-from models.database import get_db_pool
+from utils.database import get_db_pool
 from models.schemas import (
     SessionResponse,
     SessionStatus,
@@ -21,6 +21,7 @@ from utils.session_manager import (
     get_server_allocator,
     verify_session_token,
 )
+from utils.mmr_calculator import calculate_mmr_change, get_season_id
 
 logger = logging.getLogger(__name__)
 
@@ -230,26 +231,128 @@ async def submit_match_result(match_id: str, request: MatchResultRequest):
                 match_id,
             )
 
-            # Update match_player results
+            # Get match mode for history
+            match_mode = await conn.fetchval(
+                "SELECT mode FROM game.match WHERE id = $1", match_id
+            )
+
+            # Calculate average MMR per team for MMR calculation
+            team_avg_mmrs = []
+            for team in teams:
+                team_mmrs = await conn.fetch(
+                    """
+                    SELECT mmr_before
+                    FROM game.match_player
+                    WHERE match_id = $1 AND player_id = ANY($2)
+                    """,
+                    match_id,
+                    team,
+                )
+                avg_mmr = (
+                    sum(row["mmr_before"] for row in team_mmrs) / len(team_mmrs)
+                    if team_mmrs
+                    else 1500
+                )
+                team_avg_mmrs.append(int(avg_mmr))
+
+            # Update match_player results and calculate MMR changes
+            season = get_season_id()
+
             for team_idx, team in enumerate(teams):
                 result_type = "win" if team_idx == request.winner_team else "loss"
+                opponent_avg_mmr = (
+                    team_avg_mmrs[1 - team_idx] if len(team_avg_mmrs) > 1 else 1500
+                )
 
                 for player_id in team:
+                    # Get player's current MMR
+                    player_data = await conn.fetchrow(
+                        """
+                        SELECT mp.mmr_before, p.mmr
+                        FROM game.match_player mp
+                        JOIN game.player p ON mp.player_id = p.id
+                        WHERE mp.match_id = $1 AND mp.player_id = $2
+                        """,
+                        match_id,
+                        player_id,
+                    )
+
+                    if not player_data:
+                        continue
+
+                    # Calculate MMR change
+                    mmr_change = calculate_mmr_change(
+                        player_data["mmr_before"],
+                        opponent_avg_mmr,
+                        result_type,
+                    )
+                    new_mmr = player_data["mmr_before"] + mmr_change
+
                     # Get player stats from request
                     player_stats = request.player_stats.get(player_id, {})
 
+                    # Update match_player
                     await conn.execute(
                         """
                         UPDATE game.match_player
                         SET result = $1,
                             stats = $2,
-                            mmr_after = mmr_before
-                        WHERE match_id = $3 AND player_id = $4
+                            mmr_after = $3
+                        WHERE match_id = $4 AND player_id = $5
                         """,
                         result_type,
                         json.dumps(player_stats),
+                        new_mmr,
                         match_id,
                         player_id,
+                    )
+
+                    # Update player MMR
+                    await conn.execute(
+                        """
+                        UPDATE game.player
+                        SET mmr = $1
+                        WHERE id = $2
+                        """,
+                        new_mmr,
+                        player_id,
+                    )
+
+                    # Write match history
+                    await conn.execute(
+                        """
+                        INSERT INTO game.match_history
+                        (match_id, player_id, mode, result, mmr_change, team, stats)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        """,
+                        match_id,
+                        player_id,
+                        match_mode,
+                        result_type,
+                        mmr_change,
+                        team_idx,
+                        json.dumps(player_stats),
+                    )
+
+                    # Update leaderboard
+                    await conn.execute(
+                        """
+                        INSERT INTO game.leaderboard
+                        (season, player_id, rating, wins, losses, games_played)
+                        VALUES ($1, $2, $3, $4, $5, 1)
+                        ON CONFLICT (season, player_id)
+                        DO UPDATE SET
+                            rating = $3,
+                            wins = game.leaderboard.wins + $4,
+                            losses = game.leaderboard.losses + $5,
+                            games_played = game.leaderboard.games_played + 1,
+                            updated_at = now()
+                        """,
+                        season,
+                        player_id,
+                        new_mmr,
+                        1 if result_type == "win" else 0,
+                        1 if result_type == "loss" else 0,
                     )
 
             # Update party statuses to idle

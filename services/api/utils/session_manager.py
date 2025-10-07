@@ -19,14 +19,16 @@ _session_secret: Optional[bytes] = None
 def init_session_secret(secret: str):
     """Initialize the session token secret."""
     global _session_secret
-    _session_secret = secret.encode('utf-8')
+    _session_secret = secret.encode("utf-8")
     logger.info("Session secret initialized")
 
 
 def get_session_secret() -> bytes:
     """Get the session secret."""
     if _session_secret is None:
-        raise RuntimeError("Session secret not initialized. Call init_session_secret() first.")
+        raise RuntimeError(
+            "Session secret not initialized. Call init_session_secret() first."
+        )
     return _session_secret
 
 
@@ -94,7 +96,9 @@ def init_server_allocator(base_host: str = "game.example.com", base_port: int = 
 def get_server_allocator() -> MockServerAllocator:
     """Get the global server allocator."""
     if _server_allocator is None:
-        raise RuntimeError("Server allocator not initialized. Call init_server_allocator() first.")
+        raise RuntimeError(
+            "Server allocator not initialized. Call init_server_allocator() first."
+        )
     return _server_allocator
 
 
@@ -117,7 +121,7 @@ def generate_session_token(match_id: str, player_ids: List[str]) -> str:
     secret = get_session_secret()
 
     # Create message to sign: match_id + sorted player IDs
-    message = f"{match_id}:{'|'.join(sorted(player_ids))}".encode('utf-8')
+    message = f"{match_id}:{'|'.join(sorted(player_ids))}".encode("utf-8")
 
     # Generate HMAC-SHA256
     token = hmac.new(secret, message, hashlib.sha256).hexdigest()
@@ -168,7 +172,9 @@ class SessionLifecycleManager:
     @staticmethod
     def can_transition(from_status: str, to_status: str) -> bool:
         """Check if state transition is valid."""
-        return to_status in SessionLifecycleManager.VALID_TRANSITIONS.get(from_status, [])
+        return to_status in SessionLifecycleManager.VALID_TRANSITIONS.get(
+            from_status, []
+        )
 
     @staticmethod
     def validate_transition(from_status: str, to_status: str):

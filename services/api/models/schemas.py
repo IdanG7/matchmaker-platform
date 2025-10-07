@@ -222,7 +222,9 @@ class MatchResultRequest(BaseModel):
 
     match_id: str
     winner_team: int = Field(..., ge=0, description="Winning team index (0-based)")
-    player_stats: dict = Field(default_factory=dict, description="Player stats by player_id")
+    player_stats: dict = Field(
+        default_factory=dict, description="Player stats by player_id"
+    )
     duration_seconds: int = Field(..., gt=0, description="Match duration in seconds")
     metadata: Optional[dict] = None
 
@@ -233,6 +235,56 @@ class HeartbeatRequest(BaseModel):
     match_id: str
     server_id: str
     active_players: int = Field(..., ge=0)
+
+
+# ============================================================================
+# Leaderboard & Match History Schemas
+# ============================================================================
+
+
+class MatchHistoryEntry(BaseModel):
+    """Match history entry for a player."""
+
+    match_id: str
+    played_at: datetime
+    mode: str
+    result: str  # win, loss, draw
+    mmr_change: int
+    team: int
+    stats: dict = {}
+
+
+class MatchHistoryResponse(BaseModel):
+    """Paginated match history response."""
+
+    entries: List[MatchHistoryEntry]
+    total: int
+    page: int
+    page_size: int
+    has_more: bool
+
+
+class LeaderboardEntry(BaseModel):
+    """Leaderboard entry for a player."""
+
+    player_id: str
+    username: str
+    rating: int
+    rank: Optional[int] = None
+    wins: int
+    losses: int
+    games_played: int
+    win_rate: float
+
+
+class LeaderboardResponse(BaseModel):
+    """Leaderboard response."""
+
+    season: str
+    entries: List[LeaderboardEntry]
+    total: int
+    page: int
+    page_size: int
 
 
 # ============================================================================

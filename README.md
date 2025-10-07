@@ -72,6 +72,16 @@ The API service is running at `http://localhost:8080`
 - `DELETE /v1/party/queue` - Leave matchmaking queue
 - `WS /v1/ws/party/{party_id}` - WebSocket for real-time party updates
 
+**Session** (Phase 5):
+- `GET /v1/session/{match_id}` - Get session details (server endpoint + token)
+- `POST /v1/session/{match_id}/heartbeat` - Game server heartbeat
+- `POST /v1/session/{match_id}/result` - Submit match result
+
+**Leaderboard & Match History** (Phase 6):
+- `GET /v1/matches/history` - Get match history (paginated, filterable by player/mode)
+- `GET /v1/leaderboard/{season}` - Get leaderboard for specific season
+- `GET /v1/leaderboard` - Get current season leaderboard
+
 **Documentation**:
 - Swagger UI: `http://localhost:8080/docs`
 - ReDoc: `http://localhost:8080/redoc`
@@ -83,8 +93,8 @@ The API service is running at `http://localhost:8080`
 - [x] Phase 2: Auth & Profile Service
 - [x] Phase 3: Lobby/Party Service
 - [x] Phase 4: Matchmaker Core (C++)
-- [ ] Phase 5: Session Service
-- [ ] Phase 6: Leaderboard & Match History
+- [x] Phase 5: Session Service
+- [x] Phase 6: Leaderboard & Match History
 - [ ] Phase 7: Client SDK (C++)
 - [ ] Phase 8: Observability & Testing
 

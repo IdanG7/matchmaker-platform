@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
-from routes import auth, profile, party, websocket, session
+from routes import auth, profile, party, websocket, session, leaderboard
 from middleware.rate_limit import RateLimitMiddleware
 from utils.database import db
 from utils import redis_cache, nats_events, session_manager
@@ -124,6 +124,7 @@ app.include_router(profile.router, prefix="/v1/profile", tags=["profile"])
 app.include_router(party.router, prefix="/v1/party", tags=["party"])
 app.include_router(websocket.router, prefix="/v1/ws", tags=["websocket"])
 app.include_router(session.router, prefix="/v1/session", tags=["session"])
+app.include_router(leaderboard.router, prefix="/v1", tags=["leaderboard"])
 
 
 @app.get("/health")
