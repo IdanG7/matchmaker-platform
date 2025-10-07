@@ -1,7 +1,8 @@
 """
 Integration tests for full match flow.
 
-Tests the complete flow from match.found event → session creation → match result → leaderboard update.
+Tests the complete flow from match.found event → session creation →
+match result → leaderboard update.
 """
 
 import pytest
@@ -148,8 +149,8 @@ class TestMatchFlowIntegration:
         # Call the endpoint directly
         try:
             await submit_match_result(match_id, result_request)
-        except HTTPException as e:
-            # This is expected to fail validation checks, but database operations should complete
+        except HTTPException:
+            # Expected to fail validation checks, but database operations should complete
             pass
 
         # Step 4: Verify match ended and results recorded

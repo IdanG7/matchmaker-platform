@@ -23,7 +23,10 @@
       "Bash(cmake:*)",
       "Bash(ctest:*)",
       "Bash(python -m pytest tests/test_party.py -v --tb=short)",
-      "Bash(gh run list:*)"
+      "Bash(gh run list:*)",
+      "Bash(python -m flake8:*)",
+      "Bash(flake8:*)",
+      "Bash(PYTHONPATH=. python3 -m pytest tests/ -v)"
     ],
     "deny": [],
     "ask": []
