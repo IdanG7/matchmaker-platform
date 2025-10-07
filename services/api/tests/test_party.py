@@ -149,26 +149,42 @@ class TestPartyEndpoints:
         self, async_client: AsyncClient, tokens: dict, second_user_tokens: dict
     ):
         """Test joining a full party."""
-        # Create party with max_size=1
+        # Create party with max_size=2 (minimum allowed)
         create_response = await async_client.post(
             "/v1/party",
-            json={"max_size": 1},
+            json={"max_size": 2},
             headers={"Authorization": f"Bearer {tokens['access_token']}"},
         )
-
-        # Debug: check response status
-        if create_response.status_code != 201:
-            print(
-                f"Create party failed: {create_response.status_code} - {create_response.json()}"
-            )
-
         assert create_response.status_code == 201
         party_id = create_response.json()["id"]
 
-        # Try to join when full
-        response = await async_client.post(
+        # User 2 joins to fill the party (now 2/2)
+        join_response = await async_client.post(
             f"/v1/party/{party_id}/join",
             headers={"Authorization": f"Bearer {second_user_tokens['access_token']}"},
+        )
+        assert join_response.status_code == 200
+        assert join_response.json()["size"] == 2
+
+        # Create a third user to try joining the full party
+        import uuid
+
+        third_user_data = {
+            "username": f"testuser3_{str(uuid.uuid4())[:8]}",
+            "email": f"test3_{str(uuid.uuid4())[:8]}@example.com",
+            "password": "SecurePassword789!",
+            "region": "eu-west",
+        }
+        third_user_response = await async_client.post(
+            "/v1/auth/register", json=third_user_data
+        )
+        assert third_user_response.status_code == 201
+        third_user_tokens = third_user_response.json()
+
+        # Third user tries to join the full party
+        response = await async_client.post(
+            f"/v1/party/{party_id}/join",
+            headers={"Authorization": f"Bearer {third_user_tokens['access_token']}"},
         )
 
         assert response.status_code == 400
