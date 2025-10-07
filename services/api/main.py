@@ -8,11 +8,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
-from routes import auth, profile, party, websocket
+from routes import auth, profile, party, websocket, session
 from middleware.rate_limit import RateLimitMiddleware
 from utils.database import db
-from utils import redis_cache, nats_events
+from utils import redis_cache, nats_events, session_manager
 from utils.nats_client import SimpleNatsClient
+from consumers.match_consumer import start_match_consumer
 
 # Configure logging
 logging.basicConfig(
@@ -59,8 +60,21 @@ async def lifespan(app: FastAPI):
         await nats_client.connect()
         nats_events.init_nats(nats_client)
         logger.info("NATS connection initialized")
+
+        # Start match consumer for session allocation
+        await start_match_consumer(nats_client)
+        logger.info("Match consumer started")
     except Exception as e:
         logger.warning(f"Failed to connect to NATS: {e}. Queue events disabled.")
+
+    # Startup - Initialize session manager
+    try:
+        session_manager.init_session_secret(settings.jwt_secret_key)
+        session_manager.init_server_allocator()
+        logger.info("Session manager initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize session manager: {e}")
+        raise
 
     yield
 
@@ -109,6 +123,7 @@ app.include_router(auth.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(profile.router, prefix="/v1/profile", tags=["profile"])
 app.include_router(party.router, prefix="/v1/party", tags=["party"])
 app.include_router(websocket.router, prefix="/v1/ws", tags=["websocket"])
+app.include_router(session.router, prefix="/v1/session", tags=["session"])
 
 
 @app.get("/health")

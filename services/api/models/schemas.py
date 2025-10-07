@@ -189,6 +189,53 @@ class WebSocketMessage(BaseModel):
 
 
 # ============================================================================
+# Session Schemas
+# ============================================================================
+
+
+class SessionStatus:
+    """Session status constants."""
+
+    ALLOCATING = "allocating"
+    ACTIVE = "active"
+    ENDED = "ended"
+    CANCELLED = "cancelled"
+
+
+class SessionResponse(BaseModel):
+    """Session details response."""
+
+    match_id: str
+    status: str
+    server_endpoint: Optional[str] = None
+    server_token: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    mode: str
+    region: str
+    teams: List[List[str]] = []
+    avg_mmr: Optional[int] = None
+
+
+class MatchResultRequest(BaseModel):
+    """Match result submission from game server."""
+
+    match_id: str
+    winner_team: int = Field(..., ge=0, description="Winning team index (0-based)")
+    player_stats: dict = Field(default_factory=dict, description="Player stats by player_id")
+    duration_seconds: int = Field(..., gt=0, description="Match duration in seconds")
+    metadata: Optional[dict] = None
+
+
+class HeartbeatRequest(BaseModel):
+    """Game server heartbeat."""
+
+    match_id: str
+    server_id: str
+    active_players: int = Field(..., ge=0)
+
+
+# ============================================================================
 # Error Schemas
 # ============================================================================
 
