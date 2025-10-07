@@ -63,7 +63,7 @@ class TestMatchHistory:
         self, async_client, tokens, setup_match_history
     ):
         """Test getting own match history."""
-        data = await setup_match_history
+        await setup_match_history
 
         response = await async_client.get(
             "/v1/matches/history",
@@ -107,7 +107,7 @@ class TestMatchHistory:
         self, async_client, tokens, setup_match_history
     ):
         """Test match history filtering by mode."""
-        data = await setup_match_history
+        await setup_match_history
 
         response = await async_client.get(
             "/v1/matches/history?mode=ranked",

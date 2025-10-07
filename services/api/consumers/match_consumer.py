@@ -17,6 +17,24 @@ from models.schemas import SessionStatus
 logger = logging.getLogger(__name__)
 
 
+async def broadcast_match_found_to_parties(party_ids, match_data):
+    """
+    Broadcast match.found event to all parties via WebSocket.
+
+    Args:
+        party_ids: List of party IDs in the match
+        match_data: Match details to broadcast
+    """
+    try:
+        from routes.websocket import manager
+
+        for party_id in party_ids:
+            await manager.broadcast_to_party(party_id, "match_found", match_data)
+        logger.info(f"Broadcasted match.found to {len(party_ids)} parties")
+    except Exception as e:
+        logger.error(f"Failed to broadcast match.found via WebSocket: {e}")
+
+
 async def handle_match_found(message: dict):
     """
     Handle match.found event from matchmaker.
@@ -67,35 +85,42 @@ async def handle_match_found(message: dict):
 
         pool = await get_db_pool()
         async with pool.acquire() as conn:
-            # 1. Create match record
-            await conn.execute(
-                """
-                INSERT INTO game.match (id, mode, region, mmr_avg, status, metadata)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                """,
-                match_id,
-                mode,
-                region,
-                avg_mmr,
-                SessionStatus.ALLOCATING,
-                json.dumps(
-                    {
-                        "quality_score": quality_score,
-                        "party_ids": party_ids,
-                        "teams": teams,
-                    }
-                ),
-            )
+            # Wrap all database operations in a transaction
+            async with conn.transaction():
+                # 1. Create match record
+                await conn.execute(
+                    """
+                    INSERT INTO game.match (id, mode, region, mmr_avg, status, metadata)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    """,
+                    match_id,
+                    mode,
+                    region,
+                    avg_mmr,
+                    SessionStatus.ALLOCATING,
+                    json.dumps(
+                        {
+                            "quality_score": quality_score,
+                            "party_ids": party_ids,
+                            "teams": teams,
+                        }
+                    ),
+                )
 
-            # 2. Insert match_player records
-            for team_idx, team in enumerate(teams):
-                for player_id in team:
-                    # Get player's current MMR
-                    player = await conn.fetchrow(
-                        "SELECT mmr FROM game.player WHERE id = $1", player_id
-                    )
+                # 2. Insert match_player records
+                for team_idx, team in enumerate(teams):
+                    for player_id in team:
+                        # Get player's current MMR
+                        player = await conn.fetchrow(
+                            "SELECT mmr FROM game.player WHERE id = $1", player_id
+                        )
 
-                    if player:
+                        if not player:
+                            logger.error(
+                                f"Player {player_id} not found in database for match {match_id}"
+                            )
+                            raise ValueError(f"Player {player_id} not found")
+
                         await conn.execute(
                             """
                             INSERT INTO game.match_player
@@ -108,44 +133,57 @@ async def handle_match_found(message: dict):
                             player["mmr"],
                         )
 
-            # 3. Allocate game server
-            allocator = get_server_allocator()
-            server_endpoint = allocator.allocate_server(match_id, region, mode)
+                # 3. Allocate game server
+                allocator = get_server_allocator()
+                server_endpoint = allocator.allocate_server(match_id, region, mode)
 
-            # 4. Generate session token
-            session_token = generate_session_token(match_id, all_player_ids)
+                # 4. Generate session token
+                session_token = generate_session_token(match_id, all_player_ids)
 
-            # 5. Update match with server details and set to active
-            await conn.execute(
-                """
-                UPDATE game.match
-                SET server_endpoint = $1,
-                    server_token = $2,
-                    status = $3,
-                    started_at = $4
-                WHERE id = $5
-                """,
-                server_endpoint,
-                session_token,
-                SessionStatus.ACTIVE,
-                datetime.utcnow(),
-                match_id,
-            )
-
-            # 6. Update party statuses to in_match
-            for party_id in party_ids:
+                # 5. Update match with server details and set to active
                 await conn.execute(
                     """
-                    UPDATE game.party
-                    SET status = 'in_match'
-                    WHERE id = $1
+                    UPDATE game.match
+                    SET server_endpoint = $1,
+                        server_token = $2,
+                        status = $3,
+                        started_at = $4
+                    WHERE id = $5
                     """,
-                    party_id,
+                    server_endpoint,
+                    session_token,
+                    SessionStatus.ACTIVE,
+                    datetime.utcnow(),
+                    match_id,
                 )
+
+                # 6. Update party statuses to in_match
+                for party_id in party_ids:
+                    await conn.execute(
+                        """
+                        UPDATE game.party
+                        SET status = 'in_match'
+                        WHERE id = $1
+                        """,
+                        party_id,
+                    )
 
             logger.info(
                 f"Session created for match {match_id}: "
                 f"server={server_endpoint}, token={session_token[:16]}..."
+            )
+
+            # 7. Broadcast match.found to all parties via WebSocket
+            await broadcast_match_found_to_parties(
+                party_ids,
+                {
+                    "match_id": match_id,
+                    "server_endpoint": server_endpoint,
+                    "server_token": session_token,
+                    "region": region,
+                    "mode": mode,
+                    "teams": teams,
+                },
             )
 
     except Exception as e:

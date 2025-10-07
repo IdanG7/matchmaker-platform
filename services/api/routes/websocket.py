@@ -113,7 +113,25 @@ async def party_websocket(websocket: WebSocket, party_id: str, token: str = Quer
         await websocket.close(code=4001, reason="Invalid token payload")
         return
 
-    # TODO: Verify player is a member of this party by checking database
+    # Verify player is a member of this party
+    from utils.database import get_db_pool
+
+    pool = await get_db_pool()
+    async with pool.acquire() as conn:
+        is_member = await conn.fetchval(
+            """
+            SELECT EXISTS(
+                SELECT 1 FROM game.party_member
+                WHERE party_id = $1 AND player_id = $2
+            )
+            """,
+            party_id,
+            player_id,
+        )
+
+        if not is_member:
+            await websocket.close(code=4003, reason="Not a member of this party")
+            return
 
     try:
         await manager.connect(websocket, party_id, player_id)

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <random>
 #include <sstream>
+#include <iomanip>
 
 namespace matchmaker {
 
@@ -104,12 +105,20 @@ std::vector<MatchResult> QueueManager::process_bucket(
             break;
         }
 
-        // Generate match ID
+        // Generate UUID v4 for match ID
         static std::random_device rd;
         static std::mt19937 gen(rd());
-        static std::uniform_int_distribution<uint64_t> dis;
+        static std::uniform_int_distribution<uint32_t> dis;
+
+        // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
         std::stringstream ss;
-        ss << "match_" << std::hex << dis(gen);
+        ss << std::hex << std::setfill('0');
+        ss << std::setw(8) << dis(gen) << "-";
+        ss << std::setw(4) << (dis(gen) & 0xFFFF) << "-";
+        ss << std::setw(4) << ((dis(gen) & 0x0FFF) | 0x4000) << "-";  // Version 4
+        ss << std::setw(4) << ((dis(gen) & 0x3FFF) | 0x8000) << "-";  // Variant
+        ss << std::setw(8) << dis(gen);
+        ss << std::setw(4) << (dis(gen) & 0xFFFF);
         match.match_id = ss.str();
 
         // Fill in region/mode from bucket
