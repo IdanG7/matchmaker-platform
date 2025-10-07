@@ -21,7 +21,9 @@
       "Bash(~/.local/bin/black:*)",
       "Bash(python -m pytest tests/test_party.py -v)",
       "Bash(cmake:*)",
-      "Bash(ctest:*)"
+      "Bash(ctest:*)",
+      "Bash(python -m pytest tests/test_party.py -v --tb=short)",
+      "Bash(gh run list:*)"
     ],
     "deny": [],
     "ask": []
