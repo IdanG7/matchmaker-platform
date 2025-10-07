@@ -18,9 +18,31 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     endif()
 endif()
 
-# Dependencies
-find_package(spdlog REQUIRED)
-find_package(nlohmann_json REQUIRED)
+# Dependencies - use FetchContent for cross-platform compatibility
+include(FetchContent)
+
+# Try to find system packages first, fall back to FetchContent
+find_package(spdlog QUIET)
+if(NOT spdlog_FOUND)
+    message(STATUS "spdlog not found, fetching from GitHub...")
+    FetchContent_Declare(
+        spdlog
+        GIT_REPOSITORY https://github.com/gabime/spdlog.git
+        GIT_TAG v1.12.0
+    )
+    FetchContent_MakeAvailable(spdlog)
+endif()
+
+find_package(nlohmann_json QUIET)
+if(NOT nlohmann_json_FOUND)
+    message(STATUS "nlohmann_json not found, fetching from GitHub...")
+    FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.11.3
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+endif()
 
 # Note: hiredis and nats.c will be added via FetchContent for easier cross-platform builds
 
