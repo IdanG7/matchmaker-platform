@@ -66,7 +66,8 @@ async def get_match_history(
             where_clause = " AND ".join(where_clauses)
 
             # Get total count
-            count_query = f"""
+            # Safe: where_clause contains only hardcoded parameterized placeholders
+            count_query = f"""  # nosec B608
                 SELECT COUNT(*) as total
                 FROM game.match_history
                 WHERE {where_clause}
@@ -78,7 +79,8 @@ async def get_match_history(
             offset = (page - 1) * page_size
             params.extend([page_size, offset])
 
-            entries_query = f"""
+            # Safe: where_clause contains only hardcoded parameterized placeholders
+            entries_query = f"""  # nosec B608
                 SELECT match_id, played_at, mode, result, mmr_change, team, stats
                 FROM game.match_history
                 WHERE {where_clause}

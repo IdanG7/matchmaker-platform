@@ -26,7 +26,9 @@
       "Bash(gh run list:*)",
       "Bash(python -m flake8:*)",
       "Bash(flake8:*)",
-      "Bash(PYTHONPATH=. python3 -m pytest tests/ -v)"
+      "Bash(PYTHONPATH=. python3 -m pytest tests/ -v)",
+      "Bash(~/.local/bin/bandit -r services/api -ll)",
+      "Bash(~/.local/bin/bandit -r services/api --exclude services/api/venv -f json)"
     ],
     "deny": [],
     "ask": []
