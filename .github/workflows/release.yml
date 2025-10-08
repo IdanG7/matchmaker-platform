@@ -77,6 +77,9 @@ jobs:
         run: |
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
           # Install vcpkg and dependencies
+          if [ -d "C:/vcpkg" ]; then
+            rm -rf C:/vcpkg
+          fi
           git clone https://github.com/microsoft/vcpkg.git C:/vcpkg
           C:/vcpkg/bootstrap-vcpkg.bat
           C:/vcpkg/vcpkg install openssl:x64-windows zlib:x64-windows
