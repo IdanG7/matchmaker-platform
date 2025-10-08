@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.4...multiplayer-sdk-v0.1.5) (2025-10-08)
+
+
+### Features
+
+* **ci:** add Windows SDK build support ([1e94c6b](https://github.com/IdanG7/matchmaker-platform/commit/1e94c6bf5f001e31f4263f7d211636551113b00a))
+
 ## [0.1.4](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.3...multiplayer-sdk-v0.1.4) (2025-10-08)
 
 
