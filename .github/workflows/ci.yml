@@ -21,9 +21,15 @@ jobs:
       - uses: actions/checkout@v4
       - id: check
         run: |
-          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" ]] && [[ "${{ github.event.head_commit.message }}" == chore\(main\):\ release* ]]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "⏭️  Skipping CI for release merge commit (already tested on release-please branch)"
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          # Check if it's a release commit (direct or merged from release-please branch)
+          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            if [[ "$COMMIT_MSG" == chore\(main\):\ release* ]] || [[ "$COMMIT_MSG" == "Merge pull request"*"release-please--branches--main"* ]]; then
+              echo "skip=true" >> $GITHUB_OUTPUT
+              echo "⏭️  Skipping CI for release merge commit (already tested on release-please branch)"
+            else
+              echo "skip=false" >> $GITHUB_OUTPUT
+            fi
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
