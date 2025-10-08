@@ -14,6 +14,7 @@ from utils.database import db
 from utils import redis_cache, nats_events, session_manager
 from utils.nats_client import SimpleNatsClient
 from consumers.match_consumer import start_match_consumer
+from metrics import PrometheusMiddleware, metrics_endpoint
 
 # Configure logging
 logging.basicConfig(
@@ -118,6 +119,9 @@ app.add_middleware(
 if settings.rate_limit_enabled:
     app.add_middleware(RateLimitMiddleware)
 
+# Prometheus metrics middleware
+app.add_middleware(PrometheusMiddleware)
+
 # Include routers
 app.include_router(auth.router, prefix="/v1/auth", tags=["auth"])
 app.include_router(profile.router, prefix="/v1/profile", tags=["profile"])
@@ -135,6 +139,17 @@ async def health_check():
         "service": settings.service_name,
         "environment": settings.environment,
     }
+
+
+@app.get("/metrics")
+async def metrics():
+    """
+    Prometheus metrics endpoint.
+
+    Exposes metrics in Prometheus text format for scraping.
+    Metrics include request rates, latencies, error rates, and more.
+    """
+    return metrics_endpoint()
 
 
 @app.get("/")
