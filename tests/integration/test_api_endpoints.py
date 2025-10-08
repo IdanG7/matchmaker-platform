@@ -2,6 +2,7 @@
 Integration tests for API endpoints.
 
 Tests the complete flow of user registration, authentication, and party creation.
+Note: These tests require the full backend stack to be running.
 """
 
 import pytest
@@ -12,9 +13,17 @@ BASE_URL = "http://localhost:8080"
 
 
 @pytest.mark.asyncio
+async def test_health_check():
+    """Test that the API is responsive."""
+    async with httpx.AsyncClient(base_url=BASE_URL) as client:
+        response = await client.get("/docs")
+        assert response.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_user_registration_and_login():
     """Test user registration and login flow."""
-    async with httpx.AsyncClient(base_url=BASE_URL) as client:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=10.0) as client:
         # Register a new user
         register_data = {
             "email": "integration-test@example.com",
@@ -26,7 +35,11 @@ async def test_user_registration_and_login():
         response = await client.post("/v1/auth/register", json=register_data)
 
         # Should succeed (201) or fail if already exists (400)
-        assert response.status_code in [200, 201, 400]
+        # 500 errors indicate backend issues and should fail the test
+        assert response.status_code in [200, 201, 400], (
+            f"Registration failed with status {response.status_code}. "
+            f"Response: {response.text}"
+        )
 
         if response.status_code in [200, 201]:
             data = response.json()
@@ -57,7 +70,7 @@ async def test_user_registration_and_login():
 @pytest.mark.asyncio
 async def test_party_creation():
     """Test party creation and management."""
-    async with httpx.AsyncClient(base_url=BASE_URL) as client:
+    async with httpx.AsyncClient(base_url=BASE_URL, timeout=10.0) as client:
         # First, authenticate
         login_data = {
             "username": "integrationtester",
@@ -76,7 +89,11 @@ async def test_party_creation():
                 "region": "us-west",
             }
             response = await client.post("/v1/auth/register", json=register_data)
-            assert response.status_code in [200, 201]
+
+            assert response.status_code in [200, 201], (
+                f"Registration failed with status {response.status_code}. "
+                f"Response: {response.text}"
+            )
 
         data = response.json()
         access_token = data["access_token"]
@@ -94,14 +111,6 @@ async def test_party_creation():
             assert "id" in party
             assert "leader_id" in party
             assert "status" in party
-
-
-@pytest.mark.asyncio
-async def test_health_check():
-    """Test that the API is responsive."""
-    async with httpx.AsyncClient(base_url=BASE_URL) as client:
-        response = await client.get("/docs")
-        assert response.status_code == 200
 
 
 if __name__ == "__main__":

@@ -90,6 +90,8 @@ pip install httpx pytest-asyncio
 pytest tests/integration/ -v
 ```
 
+**Note**: Integration tests require all backend services (PostgreSQL, Redis, NATS, API) to be running. The CI pipeline ensures services are fully ready before running tests.
+
 ## CI/CD Testing
 
 The GitHub Actions CI pipeline runs automatically on all PRs and commits to `main`:

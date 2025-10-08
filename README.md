@@ -117,7 +117,7 @@ services/           # Microservices
   profile/         # Player profiles
   leaderboard/     # Rankings & history
 sdk/               # Client SDKs
-  cpp/             # C++ game client SDK
+  cpp/             # C++ game client SDK (see USAGE.md)
   python/          # Python SDK (testing/tools)
 deployments/       # Deployment configs
   docker/          # Docker Compose
@@ -126,6 +126,31 @@ db/                # Database migrations
 ops/               # Observability configs
 tests/             # Integration & load tests
 ```
+
+## Using the SDK in Your Game
+
+The C++ SDK provides a clean, type-safe API for integrating matchmaking into your game:
+
+```cpp
+#include <game/sdk.hpp>
+
+// Authenticate
+auto result = game::Auth::login(API_URL, username, password);
+game::SDK sdk(API_URL);
+sdk.set_token(result.access_token);
+
+// Create party and queue for match
+auto party = sdk.client().create_party();
+sdk.client().connect_ws(party.id);
+sdk.client().enqueue(party.id, "ranked", 5);
+
+// Handle match found
+sdk.client().on_match_found([](const game::MatchInfo& match) {
+    // Connect to game server at match.server_endpoint
+});
+```
+
+**📖 Full SDK documentation: [sdk/cpp/USAGE.md](sdk/cpp/USAGE.md)**
 
 ## Key Features
 
@@ -206,6 +231,32 @@ make up    # Start all services
 make logs  # View logs
 make down  # Stop all services
 ```
+
+### Docker Images
+
+Production-ready Docker images are automatically built and pushed to GitHub Container Registry on every commit to `main`:
+
+```bash
+# Pull the latest API image
+docker pull ghcr.io/idang7/matchmaker-platform/api:latest
+
+# Pull a specific version (by commit SHA)
+docker pull ghcr.io/idang7/matchmaker-platform/api:main-<commit-sha>
+
+# Run the API service
+docker run -d \
+  -p 8080:8080 \
+  -e DATABASE_URL=postgresql://postgres:password@db:5432/game \
+  -e REDIS_URL=redis://redis:6379/0 \
+  -e NATS_URL=nats://nats:4222 \
+  -e JWT_SECRET_KEY=your-secret-key \
+  ghcr.io/idang7/matchmaker-platform/api:latest
+```
+
+**Available tags:**
+- `latest` - Latest commit on main branch
+- `main` - Main branch
+- `main-<sha>` - Specific commit
 
 ### Production (Kubernetes)
 ```bash

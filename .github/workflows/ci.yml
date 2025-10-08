@@ -232,35 +232,72 @@ jobs:
         run: |
           docker compose -f deployments/docker/docker-compose.yml up -d --build
 
-      - name: Wait for services to be healthy
+      - name: Wait for PostgreSQL to be ready
         run: |
-          timeout 120 bash -c 'until docker compose -f deployments/docker/docker-compose.yml ps | grep -q "healthy"; do sleep 2; done'
-          sleep 10
+          echo "Waiting for PostgreSQL..."
+          timeout 60 bash -c 'until docker compose -f deployments/docker/docker-compose.yml exec -T postgres pg_isready -U postgres; do sleep 2; done'
+
+      - name: Wait for Redis to be ready
+        run: |
+          echo "Waiting for Redis..."
+          timeout 60 bash -c 'until docker compose -f deployments/docker/docker-compose.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+
+      - name: Wait for NATS to be ready
+        run: |
+          echo "Waiting for NATS..."
+          sleep 5
+
+      - name: Wait for API to be ready
+        run: |
+          echo "Waiting for API service..."
+          timeout 60 bash -c 'until curl -sf http://localhost:8080/docs > /dev/null; do sleep 2; echo "API not ready yet..."; done'
+          echo "✅ API is ready!"
+
+      - name: Verify database schema
+        run: |
+          echo "Checking database schema..."
+          docker compose -f deployments/docker/docker-compose.yml exec -T postgres psql -U postgres -d game -c "\dt game.*" || echo "Schema check completed"
 
       - name: Check service health
         run: |
           docker compose -f deployments/docker/docker-compose.yml ps
-          curl -f http://localhost:8080/docs || exit 1
+          echo "Testing API health endpoint..."
+          curl -f http://localhost:8080/docs
+          echo "✅ All services are healthy!"
 
       - name: Run integration tests
         run: |
           pip install pytest pytest-asyncio httpx
-          # Run any integration tests if they exist
-          if [ -d "tests/integration" ]; then
-            pytest tests/integration -v || echo "No integration tests found"
-          fi
+          pytest tests/integration/ -v --tb=short
 
       - name: Test API endpoints
         run: |
-          # Test auth endpoints
-          curl -X POST http://localhost:8080/v1/auth/register \
+          echo "Testing registration..."
+          REGISTER_RESPONSE=$(curl -s -X POST http://localhost:8080/v1/auth/register \
             -H "Content-Type: application/json" \
-            -d '{"email":"test@example.com","username":"testuser","password":"testpass123","region":"us-west"}' || exit 1
+            -d '{"email":"citest@example.com","username":"ciuser","password":"testpass123","region":"us-west"}')
+          echo "Registration response: $REGISTER_RESPONSE"
 
-          # Test login
-          curl -X POST http://localhost:8080/v1/auth/login \
+          echo "Testing login..."
+          LOGIN_RESPONSE=$(curl -s -X POST http://localhost:8080/v1/auth/login \
             -H "Content-Type: application/json" \
-            -d '{"username":"testuser","password":"testpass123"}' || exit 1
+            -d '{"username":"ciuser","password":"testpass123"}')
+          echo "Login response: $LOGIN_RESPONSE"
+
+          # Extract token
+          TOKEN=$(echo $LOGIN_RESPONSE | python3 -c "import sys, json; print(json.load(sys.stdin).get('access_token', ''))" 2>/dev/null || echo "")
+
+          if [ -n "$TOKEN" ]; then
+            echo "✅ Authentication successful!"
+            echo "Testing profile endpoint..."
+            curl -f -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/profile/me
+            echo ""
+            echo "✅ All API endpoint tests passed!"
+          else
+            echo "❌ Failed to get authentication token"
+            echo "Login response: $LOGIN_RESPONSE"
+            exit 1
+          fi
 
       - name: Show service logs on failure
         if: failure()
@@ -298,12 +335,25 @@ jobs:
       - name: Start backend services
         run: |
           docker compose -f deployments/docker/docker-compose.yml up -d
-          sleep 15
+
+      - name: Wait for PostgreSQL
+        run: |
+          timeout 60 bash -c 'until docker compose -f deployments/docker/docker-compose.yml exec -T postgres pg_isready -U postgres; do sleep 2; done'
+
+      - name: Wait for Redis
+        run: |
+          timeout 60 bash -c 'until docker compose -f deployments/docker/docker-compose.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
+
+      - name: Wait for API to be ready
+        run: |
+          timeout 90 bash -c 'until curl -sf http://localhost:8080/docs > /dev/null; do sleep 2; echo "Waiting for API..."; done'
+          echo "✅ Backend is ready for SDK testing"
 
       - name: Run SDK party test
         run: |
           cd sdk/cpp/build
-          timeout 30 ./examples/party_test || echo "SDK test completed"
+          timeout 45 ./examples/party_test
+          echo "✅ SDK E2E test passed!"
 
       - name: Show logs on failure
         if: failure()
@@ -339,53 +389,48 @@ jobs:
           sarif_file: 'trivy-results.sarif'
 
   docker-build:
-    name: Build Docker Images
+    name: Build & Push Docker Images
     runs-on: ubuntu-latest
     needs: [test-python, build-matchmaker]
     if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build API image (test build only)
+      - name: Log in to Container Registry
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for API
+        id: meta-api
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/api
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push API image
         uses: docker/build-push-action@v5
         with:
           context: ./services/api
           file: ./services/api/Dockerfile
-          push: false
-          tags: matchmaker-api:test
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta-api.outputs.tags }}
+          labels: ${{ steps.meta-api.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      # Note: Docker image push is disabled. To enable:
-      # 1. Enable GitHub Container Registry for this repo
-      # 2. Grant workflow permissions to write packages
-      # 3. Uncomment the push steps below
-
-      # - name: Log in to Container Registry
-      #   if: github.ref == 'refs/heads/main'
-      #   uses: docker/login-action@v3
-      #   with:
-      #     registry: ${{ env.REGISTRY }}
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Extract metadata for API
-      #   id: meta-api
-      #   uses: docker/metadata-action@v5
-      #   with:
-      #     images: ${{ env.REGISTRY }}/${{ github.repository }}/api
-
-      # - name: Push API image
-      #   uses: docker/build-push-action@v5
-      #   with:
-      #     context: ./services/api
-      #     file: ./services/api/Dockerfile
-      #     push: true
-      #     tags: ${{ steps.meta-api.outputs.tags }}
-      #     labels: ${{ steps.meta-api.outputs.labels }}
 
   summary:
     name: Build Summary
