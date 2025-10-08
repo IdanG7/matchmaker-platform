@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.5...multiplayer-sdk-v0.1.6) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** add manual trigger for SDK release builds ([6fa786b](https://github.com/IdanG7/matchmaker-platform/commit/6fa786bf68df4e4c0577f3bd557ff6dfc29c3986))
+
 ## [0.1.5](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.4...multiplayer-sdk-v0.1.5) (2025-10-08)
 
 
