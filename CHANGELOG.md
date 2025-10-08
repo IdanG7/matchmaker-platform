@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.10](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.9...multiplayer-sdk-v0.1.10) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** force bash shell for version detection on Windows ([c518318](https://github.com/IdanG7/matchmaker-platform/commit/c518318798bc2e01ea27d1293637e37d35443d94))
+
 ## [0.1.9](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.8...multiplayer-sdk-v0.1.9) (2025-10-08)
 
 
