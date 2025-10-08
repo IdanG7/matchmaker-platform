@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.9](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.8...multiplayer-sdk-v0.1.9) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** detect both squash and merge commits for release PRs ([2d6fe93](https://github.com/IdanG7/matchmaker-platform/commit/2d6fe93d8711e1ec815e6136e9e659d056c4bc05))
+
 ## [0.1.8](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.7...multiplayer-sdk-v0.1.8) (2025-10-08)
 
 
