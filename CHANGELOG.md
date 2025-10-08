@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.3...multiplayer-sdk-v0.1.4) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** resolve release-please output syntax error ([399359e](https://github.com/IdanG7/matchmaker-platform/commit/399359ec9b3d674dd05001c60a0da4dd3103282d))
+
 ## [0.1.3](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.2...multiplayer-sdk-v0.1.3) (2025-10-08)
 
 
