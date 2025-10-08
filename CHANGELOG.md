@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.11](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.10...multiplayer-sdk-v0.1.11) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** add zlib dependency for Windows SDK build ([8a2ab70](https://github.com/IdanG7/matchmaker-platform/commit/8a2ab70bef01f22fa52c5866b05caa4ab464f92a))
+
 ## [0.1.10](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.9...multiplayer-sdk-v0.1.10) (2025-10-08)
 
 
