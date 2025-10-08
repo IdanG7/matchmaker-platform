@@ -5,9 +5,23 @@ on:
     types: [published]
 
 jobs:
+  # Wait for CI to pass before building release
+  wait-for-ci:
+    name: Wait for CI to Pass
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for CI workflow
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.event.release.target_commitish }}
+          check-name: 'Build Summary'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
   build-sdk:
     name: Build SDK - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    needs: wait-for-ci
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]

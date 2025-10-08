@@ -214,7 +214,7 @@ cd sdk/cpp/build && ./examples/party_test
 
 ## CI/CD Pipeline
 
-The GitHub Actions pipeline runs:
+The GitHub Actions pipeline includes:
 1. **Python Linting**: Black, Flake8, Bandit
 2. **Unit Tests**: Python services with PostgreSQL/Redis
 3. **C++ Builds**: Matchmaker and SDK compilation
@@ -222,6 +222,7 @@ The GitHub Actions pipeline runs:
 5. **SDK E2E Tests**: Real client-server communication
 6. **Security Scanning**: Trivy vulnerability detection
 7. **Coverage Reports**: Automated Codecov uploads
+8. **Automated Releases**: Conventional commits trigger versioned releases with SDK binaries
 
 ## Deployment
 
