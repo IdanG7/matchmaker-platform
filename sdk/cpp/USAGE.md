@@ -4,7 +4,41 @@ This guide shows how to integrate the Multiplayer Matchmaking SDK into your game
 
 ## Installation
 
-### Option 1: CMake FetchContent (Recommended)
+### Option 1: Download Pre-built Binaries (Easiest)
+
+Download the latest release from [GitHub Releases](https://github.com/IdanG7/matchmaker-platform/releases):
+
+**Linux:**
+```bash
+# Download and extract
+wget https://github.com/IdanG7/matchmaker-platform/releases/latest/download/game-sdk-linux-x64.tar.gz
+tar -xzf game-sdk-linux-x64.tar.gz
+```
+
+**macOS:**
+```bash
+# Download and extract
+curl -L https://github.com/IdanG7/matchmaker-platform/releases/latest/download/game-sdk-macos-x64.tar.gz -o game-sdk-macos-x64.tar.gz
+tar -xzf game-sdk-macos-x64.tar.gz
+```
+
+Then in your `CMakeLists.txt`:
+```cmake
+# Add SDK include directory
+include_directories(/path/to/game-sdk-v1.0.0-<platform>/include)
+
+# Link against the SDK library
+target_link_libraries(your_game PRIVATE
+    /path/to/game-sdk-v1.0.0-<platform>/libgame-sdk.a
+    ssl crypto z pthread  # Required dependencies
+)
+```
+
+**Dependencies:**
+- Ubuntu/Debian: `sudo apt-get install libssl-dev zlib1g-dev`
+- macOS: `brew install openssl` (zlib included)
+
+### Option 2: CMake FetchContent (Recommended for CI/CD)
 
 Add to your `CMakeLists.txt`:
 
@@ -14,7 +48,7 @@ include(FetchContent)
 FetchContent_Declare(
     game-sdk
     GIT_REPOSITORY https://github.com/IdanG7/matchmaker-platform.git
-    GIT_TAG main
+    GIT_TAG v1.0.0  # Use specific version tag
     SOURCE_SUBDIR sdk/cpp
 )
 
@@ -24,7 +58,7 @@ FetchContent_MakeAvailable(game-sdk)
 target_link_libraries(your_game PRIVATE game-sdk)
 ```
 
-### Option 2: Manual Build
+### Option 3: Manual Build
 
 ```bash
 git clone https://github.com/IdanG7/matchmaker-platform.git
