@@ -24,14 +24,20 @@ jobs:
     needs: wait-for-ci
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
             platform: linux-x64
             artifact_name: game-sdk-linux-x64.tar.gz
+            archive_cmd: tar -czf
           - os: macos-latest
             platform: macos-x64
             artifact_name: game-sdk-macos-x64.tar.gz
+            archive_cmd: tar -czf
+          - os: windows-latest
+            platform: windows-x64
+            artifact_name: game-sdk-windows-x64.zip
+            archive_cmd: 7z a -tzip
 
     steps:
       - uses: actions/checkout@v4
@@ -52,15 +58,30 @@ jobs:
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          brew install cmake
+          brew install cmake openssl
 
-      - name: Build SDK
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+          choco install openssl
+
+      - name: Build SDK (Unix)
+        if: matrix.os != 'windows-latest'
         run: |
           cd sdk/cpp
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF
           cmake --build build --parallel $(nproc 2>/dev/null || sysctl -n hw.ncpu)
 
-      - name: Package SDK
+      - name: Build SDK (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd sdk/cpp
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF
+          cmake --build build --config Release --parallel
+
+      - name: Package SDK (Unix)
+        if: matrix.os != 'windows-latest'
         run: |
           cd sdk/cpp
           mkdir -p package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}
@@ -76,7 +97,28 @@ jobs:
           cp ../../README.md package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/
           cp ../../LICENSE package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/ 2>/dev/null || echo "No LICENSE file"
 
-          # Create README for the package
+      - name: Package SDK (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd sdk/cpp
+          mkdir -p package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}
+
+          # Copy library (Windows uses .lib extension)
+          cp build/Release/game-sdk.lib package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/
+
+          # Copy headers
+          cp -r include package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/
+
+          # Copy documentation
+          cp USAGE.md package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/
+          cp ../../README.md package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/
+          cp ../../LICENSE package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/ 2>/dev/null || echo "No LICENSE file"
+
+      - name: Create README (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd sdk/cpp
           cat > package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/README.txt << 'EOF'
           # Game SDK ${{ steps.version.outputs.version }}
 
@@ -92,7 +134,7 @@ jobs:
           # Link against the SDK library
           target_link_libraries(your_game PRIVATE
               /path/to/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/libgame-sdk.a
-              ssl crypto z pthread  # Required dependencies
+              ssl crypto z pthread  # Required dependencies (Linux/macOS)
           )
           ```
 
@@ -108,7 +150,7 @@ jobs:
           ## Requirements
 
           - C++17 compatible compiler
-          - OpenSSL (libssl-dev on Ubuntu, openssl on macOS)
+          - OpenSSL (libssl-dev on Ubuntu, openssl via brew on macOS)
           - zlib (zlib1g-dev on Ubuntu, included on macOS)
 
           ## Quick Start
@@ -125,9 +167,77 @@ jobs:
           - Issues: https://github.com/idang7/matchmaker-platform/issues
           EOF
 
-          # Create tarball
-          cd package
+      - name: Create README (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd sdk/cpp
+          cat > package/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/README.txt << 'EOF'
+          # Game SDK ${{ steps.version.outputs.version }} - Windows
+
+          ## Installation
+
+          1. Extract this ZIP file to your project directory
+          2. In your CMakeLists.txt:
+
+          ```cmake
+          # Add SDK include directory
+          include_directories(/path/to/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/include)
+
+          # Link against the SDK library
+          target_link_libraries(your_game PRIVATE
+              /path/to/game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}/game-sdk.lib
+              Crypt32 Ws2_32  # Required Windows dependencies
+          )
+          ```
+
+          3. See USAGE.md for API documentation and examples
+
+          ## Contents
+
+          - game-sdk.lib      - Static library
+          - include/          - Header files
+          - USAGE.md          - Complete usage guide with examples
+          - README.md         - Project documentation
+
+          ## Requirements
+
+          - C++17 compatible compiler (Visual Studio 2019+, MinGW, or Clang)
+          - CMake 3.15+
+          - OpenSSL (install via vcpkg or chocolatey)
+
+          ## Installing Dependencies (vcpkg)
+
+          ```cmd
+          vcpkg install openssl:x64-windows
+          ```
+
+          ## Quick Start
+
+          See USAGE.md for complete examples of:
+          - Authentication
+          - Party creation and management
+          - Real-time WebSocket events
+          - Matchmaking queue
+
+          ## Support
+
+          - GitHub: https://github.com/idang7/matchmaker-platform
+          - Issues: https://github.com/idang7/matchmaker-platform/issues
+          EOF
+
+      - name: Create archive (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd sdk/cpp/package
           tar -czf ../${{ matrix.artifact_name }} game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}
+
+      - name: Create archive (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          cd sdk/cpp/package
+          7z a -tzip ../${{ matrix.artifact_name }} game-sdk-${{ steps.version.outputs.version }}-${{ matrix.platform }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -183,6 +293,7 @@ jobs:
           1. Download the archive for your platform:
              - Linux: `game-sdk-linux-x64.tar.gz`
              - macOS: `game-sdk-macos-x64.tar.gz`
+             - Windows: `game-sdk-windows-x64.zip`
 
           2. Extract and follow the included README.txt
 
@@ -259,6 +370,7 @@ jobs:
           files: |
             artifacts/linux-x64-sdk/game-sdk-linux-x64.tar.gz
             artifacts/macos-x64-sdk/game-sdk-macos-x64.tar.gz
+            artifacts/windows-x64-sdk/game-sdk-windows-x64.zip
           append_body: true
           body_path: sdk_notes.md
         env:
