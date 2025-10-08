@@ -30,9 +30,7 @@ jobs:
             current="${latest#v}"
           fi
 
-          IFS='.' read -r major minor patch <<EOF
-$current
-EOF
+          IFS='.' read -r major minor patch <<<"$current"
 
           if [ -z "$major" ] || [ -z "$minor" ] || [ -z "$patch" ]; then
             echo "Failed to parse current version: $current" >&2
