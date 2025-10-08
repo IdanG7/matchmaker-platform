@@ -22,7 +22,7 @@ jobs:
           python-version: '3.11'
 
       - name: Cache pip packages
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -44,7 +44,7 @@ jobs:
         run: bandit -r services/ -ll -f json -o bandit-report.json || true
 
       - name: Upload Bandit report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: bandit-security-report
@@ -91,7 +91,7 @@ jobs:
           python-version: '3.11'
 
       - name: Cache pip packages
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -126,7 +126,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage HTML
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: htmlcov/
@@ -143,7 +143,7 @@ jobs:
           sudo apt-get install -y cmake build-essential libgtest-dev
 
       - name: Cache CMake build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: services/matchmaker/build
           key: ${{ runner.os }}-matchmaker-${{ hashFiles('services/matchmaker/CMakeLists.txt') }}
@@ -164,7 +164,7 @@ jobs:
           ctest --test-dir build --output-on-failure --verbose
 
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: matchmaker-test-results
@@ -182,7 +182,7 @@ jobs:
           sudo apt-get install -y cmake build-essential libgtest-dev libssl-dev zlib1g-dev
 
       - name: Cache CMake build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: sdk/cpp/build
           key: ${{ runner.os }}-sdk-${{ hashFiles('sdk/cpp/CMakeLists.txt') }}
@@ -203,7 +203,7 @@ jobs:
           ./sdk_tests
 
       - name: Upload SDK artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sdk-binaries
           path: |
@@ -317,6 +317,9 @@ jobs:
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
@@ -329,7 +332,7 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
