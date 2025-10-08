@@ -3,6 +3,12 @@ name: SDK Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build (e.g., multiplayer-sdk-v0.1.5)'
+        required: true
+        type: string
 
 jobs:
   # Wait for CI to pass before building release
@@ -45,7 +51,11 @@ jobs:
       - name: Get version from release
         id: version
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.tag }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+          fi
           echo "SDK Version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -258,7 +268,11 @@ jobs:
       - name: Get version from release
         id: version
         run: |
-          VERSION="${{ github.event.release.tag_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ inputs.tag }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+          fi
           echo "SDK Version: $VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
