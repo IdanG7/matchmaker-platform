@@ -13,10 +13,27 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  # Skip CI on release merge commits (already tested on release-please branch)
+  check-skip:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ github.ref }}" == "refs/heads/main" ]] && [[ "${{ github.event.head_commit.message }}" == chore\(main\):\ release* ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⏭️  Skipping CI for release merge commit (already tested on release-please branch)"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
   validate-commits:
     name: Validate Commit Messages
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    needs: check-skip
+    if: github.event_name == 'pull_request' && needs.check-skip.outputs.skip != 'true'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,6 +47,8 @@ jobs:
   lint-python:
     name: Python Linting
     runs-on: ubuntu-latest
+    needs: check-skip
+    if: needs.check-skip.outputs.skip != 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -70,6 +89,8 @@ jobs:
   test-python:
     name: Python Unit Tests
     runs-on: ubuntu-latest
+    needs: check-skip
+    if: needs.check-skip.outputs.skip != 'true'
     services:
       postgres:
         image: postgres:16-alpine
@@ -151,6 +172,8 @@ jobs:
   build-matchmaker:
     name: Build & Test C++ Matchmaker
     runs-on: ubuntu-latest
+    needs: check-skip
+    if: needs.check-skip.outputs.skip != 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -190,6 +213,8 @@ jobs:
   build-sdk:
     name: Build & Test C++ SDK
     runs-on: ubuntu-latest
+    needs: check-skip
+    if: needs.check-skip.outputs.skip != 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -231,7 +256,8 @@ jobs:
   integration-test:
     name: Integration Tests (Full Stack)
     runs-on: ubuntu-latest
-    needs: [test-python, build-matchmaker, build-sdk]
+    needs: [check-skip, test-python, build-matchmaker, build-sdk]
+    if: needs.check-skip.outputs.skip != 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -335,7 +361,8 @@ jobs:
   sdk-integration-test:
     name: SDK End-to-End Test
     runs-on: ubuntu-latest
-    needs: [build-sdk]
+    needs: [check-skip, build-sdk]
+    if: needs.check-skip.outputs.skip != 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -397,6 +424,8 @@ jobs:
   security-scan:
     name: Security Scanning
     runs-on: ubuntu-latest
+    needs: check-skip
+    if: needs.check-skip.outputs.skip != 'true'
     permissions:
       contents: read
       security-events: write
@@ -420,8 +449,8 @@ jobs:
   docker-build:
     name: Build & Push Docker Images
     runs-on: ubuntu-latest
-    needs: [test-python, build-matchmaker]
-    if: github.event_name == 'push'
+    needs: [check-skip, test-python, build-matchmaker]
+    if: github.event_name == 'push' && needs.check-skip.outputs.skip != 'true'
     permissions:
       contents: read
       packages: write
@@ -464,8 +493,8 @@ jobs:
   summary:
     name: Build Summary
     runs-on: ubuntu-latest
-    needs: [lint-python, test-python, build-matchmaker, build-sdk, integration-test, sdk-integration-test]
-    if: always()
+    needs: [check-skip, lint-python, test-python, build-matchmaker, build-sdk, integration-test, sdk-integration-test]
+    if: always() && needs.check-skip.outputs.skip != 'true'
     steps:
       - name: Check build status
         run: |
