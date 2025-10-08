@@ -1,7 +1,7 @@
 # Distributed Multiplayer Matchmaking & Game Services Platform
 
-[![CI/CD Pipeline](https://github.com/YOUR_USERNAME/multiplayer/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/multiplayer/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/YOUR_USERNAME/multiplayer/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/multiplayer)
+[![CI/CD Pipeline](https://github.com/IdanG7/matchmaker-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/IdanG7/matchmaker-platform/actions/workflows/ci.yml)
+[![GitHub release](https://img.shields.io/github/v/release/IdanG7/matchmaker-platform)](https://github.com/IdanG7/matchmaker-platform/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![C++17](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
