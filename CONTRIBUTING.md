@@ -39,10 +39,23 @@ tests/         # Integration & load tests
 
 ## Development Workflow
 
-### 1. Create a Branch
+**Important:** Always work on feature branches, never commit directly to `main`. This keeps releases clean and grouped by feature.
+
+### 1. Create a Feature Branch
+
+Branch naming conventions:
+- `feat/feature-name` - New features
+- `fix/bug-name` - Bug fixes
+- `docs/update-name` - Documentation updates
+- `refactor/component-name` - Code refactoring
+- `perf/optimization-name` - Performance improvements
 
 ```bash
-git checkout -b feature/your-feature-name
+# Create and switch to feature branch
+git checkout -b feat/add-metrics-dashboard
+
+# Or for a bug fix
+git checkout -b fix/windows-sdk-build
 ```
 
 ### 2. Make Changes
@@ -171,14 +184,95 @@ Scopes help organize changes by component:
 ### 6. Push and Create PR
 
 ```bash
-git push origin feature/your-feature-name
+# Push your feature branch
+git push origin feat/your-feature-name
 ```
 
-Create a pull request on GitHub with:
+**Create a Pull Request on GitHub:**
 
-- Clear description of changes
-- Related issue numbers
-- Screenshots/logs if applicable
+1. Go to https://github.com/IdanG7/matchmaker-platform/pulls
+2. Click "New pull request"
+3. Select your feature branch → `main`
+4. Fill in the PR template:
+   - Clear description of changes
+   - Related issue numbers
+   - Screenshots/logs if applicable
+   - Breaking changes (if any)
+
+### 7. Enable Auto-Merge (Recommended)
+
+To streamline the merge process:
+
+1. After creating the PR, click **"Enable auto-merge"** button (near the top)
+2. Select **"Squash and merge"** from the dropdown
+3. Click **"Enable auto-merge"**
+4. **Walk away** - The PR will automatically merge when all CI checks pass
+
+**Why squash merge?**
+- Combines all your commits into one clean commit on `main`
+- Keeps `main` history linear and readable
+- Makes releases cleaner (one feature = one commit = one changelog entry)
+
+**Example:**
+```
+Your branch (messy):
+  - wip: trying approach A
+  - fix typo
+  - wip: approach B works
+  - cleanup code
+
+After squash merge to main (clean):
+  - feat(sdk): add metrics dashboard
+```
+
+### 8. Wait for CI and Auto-Merge
+
+- CI runs automatically (~3-5 minutes)
+- All checks must pass:
+  - ✅ Python linting (Black, Flake8, Bandit)
+  - ✅ Python unit tests
+  - ✅ C++ builds (Matchmaker + SDK)
+  - ✅ Integration tests
+  - ✅ SDK E2E tests
+  - ✅ Security scanning
+- When all checks are green → Auto-merge merges your PR
+- **Release-please** creates/updates a release PR
+- Enable auto-merge on the release PR too (it will merge after CI passes)
+- Your changes are released! 🎉
+
+## Complete Workflow Summary
+
+**TL;DR - The Clean Way:**
+```bash
+# 1. Create feature branch
+git checkout -b feat/my-awesome-feature
+
+# 2. Make commits (can be messy, will squash later)
+git commit -m "wip: initial implementation"
+git commit -m "fix: address edge case"
+git commit -m "docs: add usage example"
+
+# 3. Push to GitHub
+git push origin feat/my-awesome-feature
+
+# 4. Create PR on GitHub
+# 5. Enable auto-merge with "Squash and merge"
+# 6. Wait for CI to pass → Auto-merges
+# 7. Release-please creates release PR
+# 8. Enable auto-merge on release PR
+# 9. Done! Your feature is released
+```
+
+**Result:**
+- ✅ Clean `main` history (one squashed commit per feature)
+- ✅ One release with all related changes grouped together
+- ✅ Clear changelog entries
+- ✅ Automated SDK binaries for every release
+
+**Avoid:**
+- ❌ Committing directly to `main` (creates a release for every commit)
+- ❌ Manual merge without squash (messy history)
+- ❌ Clicking "Merge pull request" manually (defeats auto-merge)
 
 ## Service Development
 
