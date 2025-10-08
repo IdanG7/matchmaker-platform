@@ -16,6 +16,8 @@ jobs:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
+          # Use PAT to allow force-pushing and triggering CI workflows
+          token: ${{ secrets.PAT_TOKEN }}
           # Use config files for customization
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
