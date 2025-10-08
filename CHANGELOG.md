@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.12](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.11...multiplayer-sdk-v0.1.12) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** use vcpkg for Windows dependencies instead of chocolatey ([e91fdd9](https://github.com/IdanG7/matchmaker-platform/commit/e91fdd90c185912296766a704f701e38e415715b))
+
 ## [0.1.11](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.10...multiplayer-sdk-v0.1.11) (2025-10-08)
 
 
