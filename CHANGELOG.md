@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.12...multiplayer-sdk-v0.1.13) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** remove existing vcpkg directory before cloning ([ec2bfcd](https://github.com/IdanG7/matchmaker-platform/commit/ec2bfcdb08d8614b323d6d286998e8c16d3a313d))
+
 ## [0.1.12](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.11...multiplayer-sdk-v0.1.12) (2025-10-08)
 
 
