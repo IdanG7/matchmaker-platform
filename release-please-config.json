@@ -1,0 +1,36 @@
+{
+  "packages": {
+    ".": {
+      "release-type": "simple",
+      "package-name": "multiplayer-sdk",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "changelog-sections": [
+        {"type": "feat", "section": "Features", "hidden": false},
+        {"type": "fix", "section": "Bug Fixes", "hidden": false},
+        {"type": "perf", "section": "Performance Improvements", "hidden": false},
+        {"type": "revert", "section": "Reverts", "hidden": false},
+        {"type": "docs", "section": "Documentation", "hidden": false},
+        {"type": "style", "section": "Styles", "hidden": true},
+        {"type": "chore", "section": "Miscellaneous", "hidden": true},
+        {"type": "refactor", "section": "Code Refactoring", "hidden": false},
+        {"type": "test", "section": "Tests", "hidden": true},
+        {"type": "build", "section": "Build System", "hidden": true},
+        {"type": "ci", "section": "CI/CD", "hidden": true}
+      ],
+      "extra-files": [
+        "sdk/VERSION",
+        {
+          "type": "generic",
+          "path": "sdk/cpp/CMakeLists.txt",
+          "glob": false
+        },
+        {
+          "type": "generic",
+          "path": "sdk/cpp/USAGE.md",
+          "glob": false
+        }
+      ]
+    }
+  }
+}

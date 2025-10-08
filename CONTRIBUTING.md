@@ -84,20 +84,89 @@ cd services/matchmaker && cmake -B build && ctest --test-dir build
 
 ### 5. Commit Changes
 
-```bash
-git add .
-git commit -m "feat: add new feature"
+We use **[Conventional Commits](https://www.conventionalcommits.org/)** for automated versioning and changelog generation.
+
+#### Commit Message Format
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
 ```
 
-Commit message format:
+**Examples:**
 
-- `feat:` - New features
-- `fix:` - Bug fixes
-- `docs:` - Documentation
-- `test:` - Tests
-- `refactor:` - Code refactoring
-- `perf:` - Performance improvements
-- `chore:` - Maintenance tasks
+```bash
+# Feature - triggers MINOR version bump (0.1.0 -> 0.2.0)
+git commit -m "feat: add WebSocket reconnection logic"
+git commit -m "feat(sdk): add party invite functionality"
+
+# Fix - triggers PATCH version bump (0.1.0 -> 0.1.1)
+git commit -m "fix: resolve memory leak in matchmaker"
+git commit -m "fix(api): handle null player stats gracefully"
+
+# Breaking change - triggers MAJOR version bump (0.1.0 -> 1.0.0)
+git commit -m "feat!: redesign authentication API"
+# OR with footer:
+git commit -m "feat: redesign authentication API
+
+BREAKING CHANGE: Auth endpoints now require OAuth2 instead of JWT"
+```
+
+#### Commit Types
+
+- **feat**: New feature → MINOR version bump
+- **fix**: Bug fix → PATCH version bump
+- **docs**: Documentation only (no version bump)
+- **style**: Code style/formatting (no version bump)
+- **refactor**: Code refactoring (no version bump)
+- **perf**: Performance improvement → PATCH version bump
+- **test**: Adding/updating tests (no version bump)
+- **build**: Build system changes (no version bump)
+- **ci**: CI/CD changes (no version bump)
+- **chore**: Maintenance tasks (no version bump)
+
+#### Breaking Changes
+
+Mark breaking changes with `!` or `BREAKING CHANGE:` footer:
+
+```bash
+# Using !
+git commit -m "feat!: remove deprecated matchmaker v1 API"
+
+# Using footer (more descriptive)
+git commit -m "refactor: change party data structure
+
+BREAKING CHANGE: Party.members is now an array of objects instead of strings.
+Migration guide in docs/migration.md"
+```
+
+#### Scopes (Optional)
+
+Scopes help organize changes by component:
+
+- `api` - API service
+- `matchmaker` - Matchmaker service
+- `sdk` - Client SDK
+- `db` - Database changes
+- `ci` - CI/CD workflows
+
+**Example:** `feat(sdk): add reconnection backoff strategy`
+
+#### How Releases Work
+
+1. **You commit** using conventional commit format
+2. **Release Please** creates/updates a release PR with:
+   - Version bump based on commits
+   - Auto-generated changelog
+3. **When you merge the PR**, a new release is:
+   - Tagged automatically
+   - Published to GitHub Releases
+   - SDK binaries built and attached
+
+**Note:** Only commits to `main` trigger releases. Feature branches don't create releases.
 
 ### 6. Push and Create PR
 
