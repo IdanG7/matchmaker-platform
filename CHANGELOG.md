@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.8](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.7...multiplayer-sdk-v0.1.8) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** eliminate duplicate runs and fix SDK release gate ([8460113](https://github.com/IdanG7/matchmaker-platform/commit/846011311b1fde74067e21acfc0f2d9f927bc03f))
+
+
+### Performance Improvements
+
+* **ci:** skip redundant CI run on release merge commits ([2708dda](https://github.com/IdanG7/matchmaker-platform/commit/2708ddaaee736fa07fc9d8b9321fc0bd56db7887))
+
 ## [0.1.7](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.6...multiplayer-sdk-v0.1.7) (2025-10-08)
 
 
