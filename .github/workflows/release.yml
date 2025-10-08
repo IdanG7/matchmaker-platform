@@ -50,6 +50,7 @@ jobs:
 
       - name: Get version from release
         id: version
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ inputs.tag }}"
@@ -267,6 +268,7 @@ jobs:
 
       - name: Get version from release
         id: version
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ inputs.tag }}"
