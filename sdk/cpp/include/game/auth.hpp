@@ -16,7 +16,7 @@ struct AuthResult {
 class Auth {
 public:
     static AuthResult login(const std::string& base_url,
-                           const std::string& email,
+                           const std::string& username,
                            const std::string& password);
 
     static AuthResult register_user(const std::string& base_url,

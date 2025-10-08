@@ -26,8 +26,9 @@ public:
     void cancel_queue(const std::string& party_id);
 
     // WebSocket connection
-    void connect_ws();
+    void connect_ws(const std::string& party_id);
     void disconnect_ws();
+    bool is_ws_connected() const;
 
     // Event callbacks
     void on_match_found(MatchFoundCallback callback);

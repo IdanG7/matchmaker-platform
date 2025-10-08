@@ -12,13 +12,35 @@ option(BUILD_SHARED_LIBS "Build shared library" OFF)
 
 # Compiler flags
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-Wall -Wextra -Wpedantic -Werror)
+    add_compile_options(-Wall -Wextra -Wpedantic)
+    # Note: -Werror disabled to avoid issues with third-party dependencies
 endif()
 
-# Dependencies (to be added)
-# find_package(httplib REQUIRED)
-# find_package(websocketpp REQUIRED)
-# find_package(nlohmann_json REQUIRED)
+# Dependencies
+include(FetchContent)
+
+# cpp-httplib for HTTP requests
+FetchContent_Declare(
+    httplib
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG v0.14.3
+)
+
+# IXWebSocket for WebSocket
+FetchContent_Declare(
+    ixwebsocket
+    GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
+    GIT_TAG v11.4.5
+)
+
+# nlohmann_json for JSON parsing
+FetchContent_Declare(
+    json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+)
+
+FetchContent_MakeAvailable(httplib ixwebsocket json)
 
 # Source files
 set(SOURCES
@@ -48,14 +70,14 @@ target_include_directories(game-sdk
         $<INSTALL_INTERFACE:include>
 )
 
-# Link libraries (uncomment as dependencies are added)
-# target_link_libraries(game-sdk
-#     PUBLIC
-#         nlohmann_json::nlohmann_json
-#     PRIVATE
-#         httplib::httplib
-#         websocketpp::websocketpp
-# )
+# Link libraries
+target_link_libraries(game-sdk
+    PUBLIC
+        nlohmann_json::nlohmann_json
+    PRIVATE
+        httplib::httplib
+        ixwebsocket
+)
 
 # Examples
 if(BUILD_EXAMPLES)
