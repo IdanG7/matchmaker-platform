@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.6...multiplayer-sdk-v0.1.7) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** relax commitlint rules for release-please compatibility ([0b9b238](https://github.com/IdanG7/matchmaker-platform/commit/0b9b238ebb36216113d00a30a5c2f8976d78bd55))
+
 ## [0.1.6](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.5...multiplayer-sdk-v0.1.6) (2025-10-08)
 
 
