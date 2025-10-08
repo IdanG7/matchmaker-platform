@@ -6,7 +6,6 @@ Tests the complete flow of user registration, authentication, and party creation
 
 import pytest
 import httpx
-import asyncio
 
 
 BASE_URL = "http://localhost:8080"

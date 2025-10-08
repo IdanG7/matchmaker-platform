@@ -43,7 +43,7 @@ ctest --test-dir build --output-on-failure
 cd sdk/cpp
 cmake -B build -DBUILD_TESTS=ON
 cmake --build build
-./build/sdk_tests
+./build/tests/sdk_tests
 ```
 
 ### SDK End-to-End Test

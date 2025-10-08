@@ -200,7 +200,7 @@ jobs:
       - name: Run SDK unit tests
         run: |
           cd sdk/cpp/build
-          ./sdk_tests
+          ./tests/sdk_tests
 
       - name: Upload SDK artifacts
         uses: actions/upload-artifact@v4
@@ -209,6 +209,7 @@ jobs:
           path: |
             sdk/cpp/build/libgame-sdk.a
             sdk/cpp/build/examples/party_test
+            sdk/cpp/build/tests/sdk_tests
 
   integration-test:
     name: Integration Tests (Full Stack)
@@ -369,8 +370,8 @@ jobs:
       - name: Build and push API image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: deployments/docker/Dockerfile
+          context: ./services/api
+          file: ./services/api/Dockerfile
           push: ${{ github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
