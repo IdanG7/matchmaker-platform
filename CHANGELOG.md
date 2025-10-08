@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.2...multiplayer-sdk-v0.1.3) (2025-10-08)
+
+
+### Features
+
+* **ci:** implement a more robust CI/CD pipeline ([e9a6d8e](https://github.com/IdanG7/matchmaker-platform/commit/e9a6d8e8d085f752977841a2a2c78f737c932e13))
+
 ## [0.1.2](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.1...multiplayer-sdk-v0.1.2) (2025-10-08)
 
 
