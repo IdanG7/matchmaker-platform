@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.7](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.6...multiplayer-sdk-v0.1.7) (2025-10-08)
+
+
+### Bug Fixes
+
+* **ci:** auto-trigger CI on release-please branches ([b774f73](https://github.com/IdanG7/matchmaker-platform/commit/b774f73b4bf265df89563f86cd9d5c4a154a4d95))
+* **ci:** relax commitlint rules for release-please compatibility ([0b9b238](https://github.com/IdanG7/matchmaker-platform/commit/0b9b238ebb36216113d00a30a5c2f8976d78bd55))
+* **ci:** use PAT for release-please to enable force-push ([6d94492](https://github.com/IdanG7/matchmaker-platform/commit/6d94492db1905cad4ceb4b6333cc36d802646085))
+
+
+### Documentation
+
+* add release badge and update repository URLs ([5e32e24](https://github.com/IdanG7/matchmaker-platform/commit/5e32e245969dc85504e15c992572dcfaa835095e))
+
 ## [0.1.6](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.5...multiplayer-sdk-v0.1.6) (2025-10-08)
 
 
