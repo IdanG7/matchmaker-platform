@@ -23,7 +23,7 @@ jobs:
       - name: Output release PR info
         if: steps.release.outputs.pr
         run: |
-          echo "Release PR created/updated: ${{ steps.release.outputs.pr }}"
+          echo "Release PR #${{ steps.release.outputs.prs_created || steps.release.outputs.pr }} created/updated"
 
       - name: Output release info
         if: steps.release.outputs.release_created
