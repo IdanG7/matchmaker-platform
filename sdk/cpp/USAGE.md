@@ -25,11 +25,11 @@ tar -xzf game-sdk-macos-x64.tar.gz
 Then in your `CMakeLists.txt`:
 ```cmake
 # Add SDK include directory
-include_directories(/path/to/game-sdk-v1.0.0-<platform>/include)
+include_directories(/path/to/game-sdk-v0.1.1-<platform>/include)
 
 # Link against the SDK library
 target_link_libraries(your_game PRIVATE
-    /path/to/game-sdk-v1.0.0-<platform>/libgame-sdk.a
+    /path/to/game-sdk-v0.1.1-<platform>/libgame-sdk.a
     ssl crypto z pthread  # Required dependencies
 )
 ```
@@ -48,7 +48,7 @@ include(FetchContent)
 FetchContent_Declare(
     game-sdk
     GIT_REPOSITORY https://github.com/IdanG7/matchmaker-platform.git
-    GIT_TAG v1.0.0  # Use specific version tag
+    GIT_TAG v0.1.1  # Use specific version tag
     SOURCE_SUBDIR sdk/cpp
 )
 
