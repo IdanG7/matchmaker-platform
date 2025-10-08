@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.14](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.13...multiplayer-sdk-v0.1.14) (2025-10-08)
+
+
+### Features
+
+* add quick links section to README ([#17](https://github.com/IdanG7/matchmaker-platform/issues/17)) ([7aecb9c](https://github.com/IdanG7/matchmaker-platform/commit/7aecb9caf659d20b1afcb38573dc03bbebfb9d46))
+
 ## [0.1.13](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.12...multiplayer-sdk-v0.1.13) (2025-10-08)
 
 
