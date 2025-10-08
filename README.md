@@ -10,6 +10,13 @@ A production-grade matchmaking and game services platform built with C++ and Pyt
 
 > **Portfolio Project**: This is a comprehensive demonstration of distributed systems architecture, real-time networking, and game backend development.
 
+## Quick Links
+
+- 📦 **[Latest Release](https://github.com/IdanG7/matchmaker-platform/releases/latest)** - Download pre-built SDK binaries
+- 📖 **[SDK Documentation](sdk/cpp/USAGE.md)** - Integration guide for game developers
+- 🤝 **[Contributing Guide](CONTRIBUTING.md)** - Development workflow and guidelines
+- 📊 **[CI/CD Status](https://github.com/IdanG7/matchmaker-platform/actions)** - Build and test results
+
 ## Tech Stack
 
 - **Matchmaker Core**: C++ (high-performance tick-based matching)
