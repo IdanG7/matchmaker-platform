@@ -10,6 +10,11 @@ on:
         required: true
         type: string
 
+# Queue releases instead of running in parallel
+concurrency:
+  group: sdk-release
+  cancel-in-progress: false
+
 jobs:
   # Wait for CI to pass before building release
   wait-for-ci:
