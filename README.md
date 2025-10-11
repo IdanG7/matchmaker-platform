@@ -12,10 +12,10 @@ A production-grade matchmaking and game services platform built with C++ and Pyt
 
 ## Quick Links
 
-- 📦 **[Latest Release](https://github.com/IdanG7/matchmaker-platform/releases/latest)** - Download pre-built SDK binaries
-- 📖 **[SDK Documentation](sdk/cpp/USAGE.md)** - Integration guide for game developers
-- 🤝 **[Contributing Guide](CONTRIBUTING.md)** - Development workflow and guidelines
-- 📊 **[CI/CD Status](https://github.com/IdanG7/matchmaker-platform/actions)** - Build and test results
+- **[Latest Release](https://github.com/IdanG7/matchmaker-platform/releases/latest)** - Download pre-built SDK binaries
+- **[SDK Documentation](sdk/cpp/USAGE.md)** - Integration guide for game developers
+- **[Contributing Guide](CONTRIBUTING.md)** - Development workflow and guidelines
+- **[CI/CD Status](https://github.com/IdanG7/matchmaker-platform/actions)** - Build and test results
 
 ## Tech Stack
 
@@ -157,7 +157,7 @@ sdk.client().on_match_found([](const game::MatchInfo& match) {
 });
 ```
 
-**📖 Full SDK documentation: [sdk/cpp/USAGE.md](sdk/cpp/USAGE.md)**
+**Full SDK documentation: [sdk/cpp/USAGE.md](sdk/cpp/USAGE.md)**
 
 ## Key Features
 
@@ -271,7 +271,7 @@ docker run -d \
 kubectl apply -f deployments/k8s/
 ```
 
-See [PHASES.md](PHASES.md) for the complete development roadmap and implementation details.
+See [docs/PHASES.md](docs/PHASES.md) for the complete development roadmap and implementation details.
 
 ## Contributing
 

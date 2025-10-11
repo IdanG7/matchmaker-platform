@@ -115,10 +115,10 @@ To enforce test passing before merge, configure branch protection:
 3. Branch name pattern: `main`
 
 4. Enable:
-   - ✅ **Require a pull request before merging**
-   - ✅ **Require status checks to pass before merging**
-     - ✅ **Require branches to be up to date before merging**
-   - ✅ **Require conversation resolution before merging**
+   - **Require a pull request before merging**
+   - **Require status checks to pass before merging**
+     - **Require branches to be up to date before merging**
+   - **Require conversation resolution before merging**
 
 5. Search and select required status checks:
    ```
@@ -132,18 +132,18 @@ To enforce test passing before merge, configure branch protection:
    ```
 
 6. Additional settings (recommended):
-   - ✅ **Require linear history**
-   - ✅ **Do not allow bypassing the above settings**
+   - **Require linear history**
+   - **Do not allow bypassing the above settings**
 
 7. Click **"Create"** or **"Save changes"**
 
 ### Result:
 
 After setup:
-- ❌ Cannot merge PR if any test fails
-- ❌ Cannot merge PR if branch is behind main
-- ✅ Only passing, tested code reaches main
-- ✅ Releases only contain verified code
+- Cannot merge PR if any test fails
+- Cannot merge PR if branch is behind main
+- Only passing, tested code reaches main
+- Releases only contain verified code
 
 ## Conventional Commits Enforcement
 
@@ -238,19 +238,19 @@ git push origin v0.1.2
 
 ### For Contributors:
 
-1. ✅ **Always use conventional commits**
-2. ✅ **Write tests for new features**
-3. ✅ **Ensure CI passes locally before pushing**
-4. ✅ **Keep PRs focused and small**
-5. ✅ **Update docs with code changes**
+1. **Always use conventional commits**
+2. **Write tests for new features**
+3. **Ensure CI passes locally before pushing**
+4. **Keep PRs focused and small**
+5. **Update docs with code changes**
 
 ### For Maintainers:
 
-1. ✅ **Review release PRs carefully**
-2. ✅ **Test releases before announcing**
-3. ✅ **Monitor CI pipeline health**
-4. ✅ **Keep dependencies updated**
-5. ✅ **Respond to security scan alerts**
+1. **Review release PRs carefully**
+2. **Test releases before announcing**
+3. **Monitor CI pipeline health**
+4. **Keep dependencies updated**
+5. **Respond to security scan alerts**
 
 ## Security Considerations
 
