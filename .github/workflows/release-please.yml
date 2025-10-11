@@ -5,6 +5,11 @@ on:
     branches:
       - main
 
+# Ensure only one release-please runs at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   pull-requests: write
@@ -30,5 +35,5 @@ jobs:
       - name: Output release info
         if: steps.release.outputs.release_created
         run: |
-          echo "✅ Release published: ${{ steps.release.outputs.tag_name }}"
-          echo "📦 SDK binaries will be built by the release workflow"
+          echo "Release published: ${{ steps.release.outputs.tag_name }}"
+          echo "SDK binaries will be built by the release workflow"

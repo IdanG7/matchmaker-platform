@@ -33,12 +33,10 @@ A production-grade matchmaking and game services platform built with C++ and Pyt
 
 ## Quick Links
 
-- 📦 **[Latest Release](https://github.com/IdanG7/matchmaker-platform/releases/latest)** - Download pre-built SDK binaries
-- 📖 **[SDK Documentation](sdk/cpp/USAGE.md)** - Integration guide for game developers
-- 📚 **[API Documentation](docs/API.md)** - Complete REST API reference
-- 🏗️ **[Architecture Guide](docs/ARCHITECTURE.md)** - System design and diagrams
-- 🤝 **[Contributing Guide](CONTRIBUTING.md)** - Development workflow and guidelines
-- 📊 **[CI/CD Status](https://github.com/IdanG7/matchmaker-platform/actions)** - Build and test results
+- **[Latest Release](https://github.com/IdanG7/matchmaker-platform/releases/latest)** - Download pre-built SDK binaries
+- **[SDK Documentation](sdk/cpp/USAGE.md)** - Integration guide for game developers
+- **[Contributing Guide](CONTRIBUTING.md)** - Development workflow and guidelines
+- **[CI/CD Status](https://github.com/IdanG7/matchmaker-platform/actions)** - Build and test results
 
 ## Prerequisites
 
@@ -243,6 +241,31 @@ ops/               # Observability configs
 tests/             # Integration & load tests
 ```
 
+## Using the SDK in Your Game
+
+The C++ SDK provides a clean, type-safe API for integrating matchmaking into your game:
+
+```cpp
+#include <game/sdk.hpp>
+
+// Authenticate
+auto result = game::Auth::login(API_URL, username, password);
+game::SDK sdk(API_URL);
+sdk.set_token(result.access_token);
+
+// Create party and queue for match
+auto party = sdk.client().create_party();
+sdk.client().connect_ws(party.id);
+sdk.client().enqueue(party.id, "ranked", 5);
+
+// Handle match found
+sdk.client().on_match_found([](const game::MatchInfo& match) {
+    // Connect to game server at match.server_endpoint
+});
+```
+
+**Full SDK documentation: [sdk/cpp/USAGE.md](sdk/cpp/USAGE.md)**
+
 ## Key Features
 
 ### Architecture & Design
@@ -355,7 +378,7 @@ docker run -d \
 kubectl apply -f deployments/k8s/
 ```
 
-See [PHASES.md](PHASES.md) for the complete development roadmap and implementation details.
+See [docs/PHASES.md](docs/PHASES.md) for the complete development roadmap and implementation details.
 
 ## Troubleshooting
 
