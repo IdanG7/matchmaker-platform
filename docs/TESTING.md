@@ -63,20 +63,20 @@ Expected output:
 ```
 === SDK Party Test ===
 1. Registering Player 1...
-   ✓ Player 1 authenticated
+   [OK] Player 1 authenticated
 2. Registering Player 2...
-   ✓ Player 2 authenticated
+   [OK] Player 2 authenticated
 3. Player 1 creating party...
-   ✓ Party created: <party-id>
+   [OK] Party created: <party-id>
 4. Player 1 connecting to party WebSocket...
-   ✓ WebSocket connected
+   [OK] WebSocket connected
 5. Player 2 joining party <party-id>...
-   📡 Received lobby update!
-   ✓ Player 2 joined party
+   [INFO] Received lobby update!
+   [OK] Player 2 joined party
 6. Waiting for WebSocket events...
-   ✓ Received member_joined event via WebSocket
+   [OK] Received member_joined event via WebSocket
 7. Disconnecting WebSocket...
-   ✓ Disconnected
+   [OK] Disconnected
 ```
 
 ### Integration Tests

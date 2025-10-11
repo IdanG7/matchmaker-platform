@@ -61,8 +61,6 @@ CTestTestfile.cmake
 *.swo
 *~
 .DS_Store
-
-# Claude Code
 .claude/
 
 # Logs
