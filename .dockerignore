@@ -1,0 +1,85 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+services/api/venv/
+
+# C++ build artifacts
+services/matchmaker/build/
+services/client-sdk/build/
+sdk/cpp/build/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+Testing/
+
+# IDE and editors
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Documentation (keep only essential)
+docs/
+*.md
+!README.md
+!LICENSE
+
+# Development files
+.env
+.env.*
+!.env.example
+tests/
+scripts/
+
+# Dependencies that should be reinstalled in container
+node_modules/
+vendor/
+
+# Logs
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+
+# Temporary files
+tmp/
+temp/
+*.tmp
