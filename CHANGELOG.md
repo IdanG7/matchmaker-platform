@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.15](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.14...multiplayer-sdk-v0.1.15) (2025-10-11)
+
+
+### Documentation
+
+* reorganize repository structure and remove unnecessary emojis ([#20](https://github.com/IdanG7/matchmaker-platform/issues/20)) ([0c1a185](https://github.com/IdanG7/matchmaker-platform/commit/0c1a185474ab8fb9549235832ebab9c6dd712e91))
+
 ## [0.1.14](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.13...multiplayer-sdk-v0.1.14) (2025-10-08)
 
 
