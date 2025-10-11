@@ -10,12 +10,154 @@ A production-grade matchmaking and game services platform built with C++ and Pyt
 
 > **Portfolio Project**: This is a comprehensive demonstration of distributed systems architecture, real-time networking, and game backend development.
 
+## Table of Contents
+
+- [Quick Links](#quick-links)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Services](#services)
+- [Tech Stack](#tech-stack)
+- [Using the SDK in Your Game](#using-the-sdk-in-your-game)
+- [API Endpoints](#api-endpoints)
+- [Key Features](#key-features)
+- [Technical Highlights](#technical-highlights)
+- [Development Phases](#development-phases)
+- [Project Structure](#project-structure)
+- [Testing](#testing)
+- [CI/CD Pipeline](#cicd-pipeline)
+- [Deployment](#deployment)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Quick Links
 
 - 📦 **[Latest Release](https://github.com/IdanG7/matchmaker-platform/releases/latest)** - Download pre-built SDK binaries
 - 📖 **[SDK Documentation](sdk/cpp/USAGE.md)** - Integration guide for game developers
+- 📚 **[API Documentation](docs/API.md)** - Complete REST API reference
+- 🏗️ **[Architecture Guide](docs/ARCHITECTURE.md)** - System design and diagrams
 - 🤝 **[Contributing Guide](CONTRIBUTING.md)** - Development workflow and guidelines
 - 📊 **[CI/CD Status](https://github.com/IdanG7/matchmaker-platform/actions)** - Build and test results
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+**Required:**
+- **Docker** (20.10+) and **Docker Compose** (2.0+)
+- **Make** (build automation)
+- **Git** (version control)
+
+**For SDK Development:**
+- **CMake** (3.20+)
+- **C++17 compatible compiler**:
+  - GCC 9+ (Linux)
+  - Clang 10+ (macOS)
+  - MSVC 2019+ (Windows)
+- **OpenSSL** and **zlib** development libraries
+
+**For Service Development:**
+- **Python** 3.11+
+- **pip** and **virtualenv**
+
+## Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/IdanG7/matchmaker-platform.git
+cd matchmaker-platform
+
+# Copy environment configuration
+cp .env.example .env
+
+# Start all services
+make up
+
+# Initialize database (first time only)
+docker compose -f deployments/docker/docker-compose.yml exec postgres \
+  psql -U postgres -d game -f /docker-entrypoint-initdb.d/init.sql
+
+# View logs
+make logs
+
+# Run tests
+make test
+
+# Stop all services
+make down
+```
+
+The API will be available at `http://localhost:8080`. Visit `http://localhost:8080/docs` for interactive API documentation.
+
+## Architecture
+
+The platform uses a microservices architecture with event-driven communication:
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        SDK[C++ Game SDK]
+    end
+
+    subgraph "API Gateway"
+        API[FastAPI Gateway<br/>REST + WebSocket]
+    end
+
+    subgraph "Message Bus"
+        NATS[NATS Message Broker]
+    end
+
+    subgraph "Core Services"
+        MM[Matchmaker Core<br/>C++]
+        LB[Lobby Service<br/>Python]
+        PR[Profile Service<br/>Python]
+        SS[Session Service<br/>Python]
+        LDB[Leaderboard Service<br/>Python]
+    end
+
+    subgraph "Data Layer"
+        PG[(PostgreSQL<br/>Persistent Data)]
+        RD[(Redis<br/>Cache & Queues)]
+    end
+
+    SDK -->|REST/WS| API
+    API -->|RPC| NATS
+    NATS -->|Subscribe| MM
+    NATS -->|Subscribe| LB
+    NATS -->|Subscribe| PR
+    NATS -->|Subscribe| SS
+    NATS -->|Subscribe| LDB
+    MM -->|Read/Write| RD
+    LB -->|Read/Write| RD
+    PR -->|Read/Write| PG
+    SS -->|Read/Write| PG
+    LDB -->|Read/Write| PG
+
+    style SDK fill:#e1f5ff
+    style API fill:#fff4e1
+    style MM fill:#ffe1e1
+    style NATS fill:#f0e1ff
+    style PG fill:#e1ffe1
+    style RD fill:#e1ffe1
+```
+
+**Key Design Principles:**
+- **Service Isolation**: Each service is independently deployable with its own database schema
+- **Async Communication**: NATS enables non-blocking RPC between services
+- **Horizontal Scalability**: Stateless services can scale independently
+- **Performance**: C++ matchmaker handles compute-intensive matching algorithms
+
+For detailed architecture documentation, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Services
+
+- **Gateway API**: REST & WebSocket endpoints, JWT validation, rate limiting
+- **Matchmaker**: High-performance C++ core with region/MMR/latency constraints
+- **Lobby**: Party management, ready checks, chat rooms
+- **Session**: Game server allocation and lifecycle management
+- **Profile**: Player identities, MMR, regions, preferences
+- **Leaderboard**: Match history, seasonal rankings
 
 ## Tech Stack
 
@@ -27,79 +169,46 @@ A production-grade matchmaking and game services platform built with C++ and Pyt
 - **Observability**: OpenTelemetry, Prometheus, Grafana, Jaeger
 - **Container Orchestration**: Docker Compose (dev), Kubernetes (prod-ready)
 
-## Architecture
+## Using the SDK in Your Game
 
+The C++ SDK provides a clean, type-safe API for integrating matchmaking into your game:
+
+```cpp
+#include <game/sdk.hpp>
+
+// Authenticate
+auto result = game::Auth::login(API_URL, username, password);
+game::SDK sdk(API_URL);
+sdk.set_token(result.access_token);
+
+// Create party and queue for match
+auto party = sdk.client().create_party();
+sdk.client().connect_ws(party.id);
+sdk.client().enqueue(party.id, "ranked", 5);
+
+// Handle match found
+sdk.client().on_match_found([](const game::MatchInfo& match) {
+    // Connect to game server at match.server_endpoint
+});
 ```
-Client SDK (C++) <-> Gateway API (FastAPI) <-> Services (NATS RPC)
-                                           <-> Matchmaker Core (C++)
-                                           <-> Redis (queues/cache)
-                                           <-> PostgreSQL (persistent state)
-```
 
-## Services
-
-- **Gateway API**: REST & WebSocket endpoints, JWT validation, rate limiting
-- **Matchmaker**: High-performance C++ core with region/MMR/latency constraints
-- **Lobby**: Party management, ready checks, chat rooms
-- **Session**: Game server allocation and lifecycle management
-- **Profile**: Player identities, MMR, regions, preferences
-- **Leaderboard**: Match history, seasonal rankings
-
-## Quick Start
-
-```bash
-# Start all services
-make up
-
-# View logs
-make logs
-
-# Run tests
-make test
-
-# Seed test data
-make seed
-
-# Stop all services
-make down
-```
+**📖 Full SDK documentation: [sdk/cpp/USAGE.md](sdk/cpp/USAGE.md)**
 
 ## API Endpoints
 
-The API service is running at `http://localhost:8080`
+The API service runs at `http://localhost:8080` with the following endpoint categories:
 
-**Authentication** (Phase 2):
-- `POST /v1/auth/register` - Register new user
-- `POST /v1/auth/login` - Login and get JWT tokens
-- `POST /v1/auth/refresh` - Refresh access token
+- **Authentication**: User registration, login, token refresh
+- **Profile**: User profile management, MMR, regions
+- **Party/Lobby**: Party creation, invites, ready checks, queue management
+- **Session**: Game server allocation, heartbeat, match results
+- **Leaderboard**: Rankings, match history, seasonal stats
 
-**Profile** (Phase 2):
-- `GET /v1/profile/me` - Get authenticated user profile (requires JWT)
-- `PATCH /v1/profile/me` - Update user profile (requires JWT)
+**Interactive Documentation:**
+- **Swagger UI**: `http://localhost:8080/docs`
+- **ReDoc**: `http://localhost:8080/redoc`
 
-**Party/Lobby** (Phase 3):
-- `POST /v1/party` - Create a new party
-- `GET /v1/party/{id}` - Get party details
-- `POST /v1/party/{id}/join` - Join a party
-- `DELETE /v1/party/{id}/leave` - Leave a party
-- `POST /v1/party/{id}/ready` - Toggle ready status
-- `POST /v1/party/queue` - Enter matchmaking queue
-- `DELETE /v1/party/queue` - Leave matchmaking queue
-- `WS /v1/ws/party/{party_id}` - WebSocket for real-time party updates
-
-**Session** (Phase 5):
-- `GET /v1/session/{match_id}` - Get session details (server endpoint + token)
-- `POST /v1/session/{match_id}/heartbeat` - Game server heartbeat
-- `POST /v1/session/{match_id}/result` - Submit match result
-
-**Leaderboard & Match History** (Phase 6):
-- `GET /v1/matches/history` - Get match history (paginated, filterable by player/mode)
-- `GET /v1/leaderboard/{season}` - Get leaderboard for specific season
-- `GET /v1/leaderboard` - Get current season leaderboard
-
-**Documentation**:
-- Swagger UI: `http://localhost:8080/docs`
-- ReDoc: `http://localhost:8080/redoc`
+For complete API reference with request/response schemas, see **[docs/API.md](docs/API.md)**.
 
 ## Development Phases
 
@@ -133,31 +242,6 @@ db/                # Database migrations
 ops/               # Observability configs
 tests/             # Integration & load tests
 ```
-
-## Using the SDK in Your Game
-
-The C++ SDK provides a clean, type-safe API for integrating matchmaking into your game:
-
-```cpp
-#include <game/sdk.hpp>
-
-// Authenticate
-auto result = game::Auth::login(API_URL, username, password);
-game::SDK sdk(API_URL);
-sdk.set_token(result.access_token);
-
-// Create party and queue for match
-auto party = sdk.client().create_party();
-sdk.client().connect_ws(party.id);
-sdk.client().enqueue(party.id, "ranked", 5);
-
-// Handle match found
-sdk.client().on_match_found([](const game::MatchInfo& match) {
-    // Connect to game server at match.server_endpoint
-});
-```
-
-**📖 Full SDK documentation: [sdk/cpp/USAGE.md](sdk/cpp/USAGE.md)**
 
 ## Key Features
 
@@ -272,6 +356,127 @@ kubectl apply -f deployments/k8s/
 ```
 
 See [PHASES.md](PHASES.md) for the complete development roadmap and implementation details.
+
+## Troubleshooting
+
+### Services won't start
+
+**Problem**: `docker compose up` fails or containers exit immediately
+
+**Solutions**:
+```bash
+# Check if ports are already in use
+lsof -i :8080  # API
+lsof -i :5432  # PostgreSQL
+lsof -i :6379  # Redis
+lsof -i :4222  # NATS
+
+# Clean up and rebuild
+make down
+docker system prune -a
+make up
+```
+
+### Database connection errors
+
+**Problem**: `psycopg2.OperationalError: could not connect to server`
+
+**Solutions**:
+```bash
+# Wait for PostgreSQL to be ready (takes 10-15 seconds)
+docker compose -f deployments/docker/docker-compose.yml logs postgres
+
+# Verify database is initialized
+docker compose -f deployments/docker/docker-compose.yml exec postgres \
+  psql -U postgres -d game -c "\dt game.*"
+
+# Re-initialize if needed
+docker compose -f deployments/docker/docker-compose.yml exec postgres \
+  psql -U postgres -d game -f /docker-entrypoint-initdb.d/init.sql
+```
+
+### SDK build failures
+
+**Problem**: CMake configuration or compilation errors
+
+**Solutions**:
+```bash
+# Install dependencies (Ubuntu/Debian)
+sudo apt-get install cmake build-essential libssl-dev zlib1g-dev
+
+# Install dependencies (macOS)
+brew install cmake openssl zlib
+
+# Clean build directory
+cd sdk/cpp
+rm -rf build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
+```
+
+### WebSocket connection failures
+
+**Problem**: SDK can't connect to WebSocket endpoint
+
+**Solutions**:
+- Ensure API service is running: `curl http://localhost:8080/docs`
+- Check firewall isn't blocking port 8080
+- Verify JWT token is valid (tokens expire after 15 minutes)
+- Check API logs: `docker compose logs api`
+
+### Tests failing
+
+**Problem**: Integration or SDK tests fail
+
+**Solutions**:
+```bash
+# Ensure all services are healthy
+docker compose ps
+
+# Check service logs
+docker compose logs --tail=50
+
+# Reset environment
+make down
+make up
+# Wait 30 seconds for services to initialize
+pytest tests/integration/ -v
+```
+
+### Performance issues / Slow matchmaking
+
+**Problem**: Matches take too long to form
+
+**Solutions**:
+- Check Redis connection: `docker compose exec redis redis-cli ping`
+- Verify matchmaker service is running: `docker compose logs matchmaker`
+- Increase player pool size (matchmaker requires minimum players per mode)
+- Check MMR ranges aren't too restrictive
+
+### Port conflicts
+
+**Problem**: "Address already in use" errors
+
+**Solutions**:
+```bash
+# Find and kill processes using required ports
+# PostgreSQL (5432)
+lsof -ti:5432 | xargs kill -9
+
+# Redis (6379)
+lsof -ti:6379 | xargs kill -9
+
+# API (8080)
+lsof -ti:8080 | xargs kill -9
+
+# NATS (4222)
+lsof -ti:4222 | xargs kill -9
+```
+
+For additional help, please [open an issue](https://github.com/IdanG7/matchmaker-platform/issues) with:
+- Output of `docker compose ps`
+- Relevant log output
+- Steps to reproduce the problem
 
 ## Contributing
 
