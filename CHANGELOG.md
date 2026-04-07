@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.15...multiplayer-sdk-v0.1.16) (2025-10-11)
+
+
+### Documentation
+
+* add comprehensive documentation and developer tooling ([#23](https://github.com/IdanG7/matchmaker-platform/issues/23)) ([ae6501c](https://github.com/IdanG7/matchmaker-platform/commit/ae6501c53607958ece4a10bc9cb44907ee180dec))
+
 ## [0.1.15](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.14...multiplayer-sdk-v0.1.15) (2025-10-11)
 
 
