@@ -5,6 +5,10 @@
 #include <stdexcept>
 #include <memory>
 #include <mutex>
+#include <atomic>
+#include <condition_variable>
+#include <chrono>
+#include <thread>
 
 using json = nlohmann::json;
 
@@ -30,20 +34,23 @@ namespace {
 
         void connect() {
             ws_.start();
-            // Wait for connection
-            for (int i = 0; i < 50; i++) {
-                if (connected_) break;
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
+            // Wait for connection or timeout (5s) using a condition variable
+            std::unique_lock<std::mutex> lk(state_mutex_);
+            state_cv_.wait_for(lk, std::chrono::seconds(5),
+                               [this]() { return connected_.load(); });
         }
 
         void disconnect() {
             ws_.stop();
-            connected_ = false;
+            {
+                std::lock_guard<std::mutex> lk(state_mutex_);
+                connected_ = false;
+            }
+            state_cv_.notify_all();
         }
 
         bool is_connected() const {
-            return connected_;
+            return connected_.load();
         }
 
         void set_event_callback(std::function<void(const std::string&, const json&)> callback) {
@@ -54,9 +61,17 @@ namespace {
     private:
         void onMessage(const ix::WebSocketMessagePtr& msg) {
             if (msg->type == ix::WebSocketMessageType::Open) {
-                connected_ = true;
+                {
+                    std::lock_guard<std::mutex> lk(state_mutex_);
+                    connected_ = true;
+                }
+                state_cv_.notify_all();
             } else if (msg->type == ix::WebSocketMessageType::Close) {
-                connected_ = false;
+                {
+                    std::lock_guard<std::mutex> lk(state_mutex_);
+                    connected_ = false;
+                }
+                state_cv_.notify_all();
             } else if (msg->type == ix::WebSocketMessageType::Message) {
                 try {
                     auto data = json::parse(msg->str);
@@ -71,14 +86,20 @@ namespace {
                     // Ignore parse errors
                 }
             } else if (msg->type == ix::WebSocketMessageType::Error) {
-                connected_ = false;
+                {
+                    std::lock_guard<std::mutex> lk(state_mutex_);
+                    connected_ = false;
+                }
+                state_cv_.notify_all();
             }
         }
 
         ix::WebSocket ws_;
-        bool connected_;
+        std::atomic<bool> connected_;
         std::function<void(const std::string&, const json&)> event_callback_;
         std::mutex callback_mutex_;
+        std::mutex state_mutex_;
+        std::condition_variable state_cv_;
     };
 }
 
@@ -198,17 +219,25 @@ Profile Client::get_profile() {
     }
 
     if (res->status == 200) {
-        auto data = json::parse(res->body);
-        return Profile{
-            data.value("id", ""),
-            data.value("username", ""),
-            data.value("email", ""),
-            data.value("region", ""),
-            data.value("mmr", 0)
-        };
+        try {
+            auto data = json::parse(res->body);
+            return Profile{
+                data.value("id", ""),
+                data.value("username", ""),
+                data.value("email", ""),
+                data.value("region", ""),
+                data.value("mmr", 0)
+            };
+        } catch (const json::exception&) {
+            throw std::runtime_error("Failed to parse profile response");
+        }
     } else {
-        auto error = json::parse(res->body);
-        throw std::runtime_error(error.value("detail", "Failed to get profile"));
+        try {
+            auto error = json::parse(res->body);
+            throw std::runtime_error(error.value("detail", "Failed to get profile"));
+        } catch (const json::exception&) {
+            throw std::runtime_error("Failed to get profile (invalid server response)");
+        }
     }
 }
 
@@ -244,22 +273,30 @@ Party Client::create_party() {
     }
 
     if (res->status == 200 || res->status == 201) {
-        auto data = json::parse(res->body);
-        Party party;
-        party.id = data.value("id", "");
-        party.leader_id = data.value("leader_id", "");
-        party.status = data.value("status", "");
+        try {
+            auto data = json::parse(res->body);
+            Party party;
+            party.id = data.value("id", "");
+            party.leader_id = data.value("leader_id", "");
+            party.status = data.value("status", "");
 
-        if (data.contains("member_ids") && data["member_ids"].is_array()) {
-            for (const auto& member : data["member_ids"]) {
-                party.member_ids.push_back(member.get<std::string>());
+            if (data.contains("member_ids") && data["member_ids"].is_array()) {
+                for (const auto& member : data["member_ids"]) {
+                    party.member_ids.push_back(member.get<std::string>());
+                }
             }
-        }
 
-        return party;
+            return party;
+        } catch (const json::exception&) {
+            throw std::runtime_error("Failed to parse create_party response");
+        }
     } else {
-        auto error = json::parse(res->body);
-        throw std::runtime_error(error.value("detail", "Failed to create party"));
+        try {
+            auto error = json::parse(res->body);
+            throw std::runtime_error(error.value("detail", "Failed to create party"));
+        } catch (const json::exception&) {
+            throw std::runtime_error("Failed to create party (invalid server response)");
+        }
     }
 }
 
@@ -274,8 +311,14 @@ void Client::join_party(const std::string& party_id) {
                           "application/json");
 
     if (!res || res->status != 200) {
-        auto error = res ? json::parse(res->body) : json::object();
-        throw std::runtime_error(error.value("detail", "Failed to join party"));
+        std::string detail = "Failed to join party";
+        if (res) {
+            try {
+                auto error = json::parse(res->body);
+                detail = error.value("detail", detail);
+            } catch (const json::exception&) {}
+        }
+        throw std::runtime_error(detail);
     }
 }
 
@@ -323,8 +366,14 @@ void Client::enqueue(const std::string& party_id, const std::string& mode, int t
                           "application/json");
 
     if (!res || res->status != 200) {
-        auto error = res ? json::parse(res->body) : json::object();
-        throw std::runtime_error(error.value("detail", "Failed to enter queue"));
+        std::string detail = "Failed to enter queue";
+        if (res) {
+            try {
+                auto error = json::parse(res->body);
+                detail = error.value("detail", detail);
+            } catch (const json::exception&) {}
+        }
+        throw std::runtime_error(detail);
     }
 }
 

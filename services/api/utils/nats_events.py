@@ -4,7 +4,7 @@ NATS event publishing for matchmaking queue.
 
 import logging
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ async def publish_queue_enter(
             "avg_mmr": avg_mmr,
             "region": region,
             "party_size": party_size,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Publish to matchmaker queue subject
@@ -89,7 +89,7 @@ async def publish_queue_leave(party_id: str, mode: str, region: str):
             "party_id": party_id,
             "mode": mode,
             "region": region,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Publish to matchmaker queue subject
@@ -115,7 +115,7 @@ async def publish_party_disbanded(party_id: str, reason: str = "leader_left"):
             "event_type": "party_disbanded",
             "party_id": party_id,
             "reason": reason,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Publish to party events subject
@@ -147,7 +147,7 @@ async def publish_party_updated(
             "party_id": party_id,
             "update_type": update_type,
             "data": data or {},
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Publish to party events subject

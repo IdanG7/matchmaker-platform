@@ -5,7 +5,7 @@ WebSocket endpoints for real-time party updates.
 import logging
 import json
 from typing import Dict, Set
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from fastapi.websockets import WebSocketState
 
@@ -57,7 +57,7 @@ class ConnectionManager:
         message = {
             "event": event,
             "data": data,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Remove dead connections
@@ -141,7 +141,7 @@ async def party_websocket(websocket: WebSocket, party_id: str, token: str = Quer
             {
                 "event": "connected",
                 "data": {"party_id": party_id, "player_id": player_id},
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         )
 
@@ -158,7 +158,7 @@ async def party_websocket(websocket: WebSocket, party_id: str, token: str = Quer
                         {
                             "event": "pong",
                             "data": {},
-                            "timestamp": datetime.utcnow().isoformat(),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
                         }
                     )
 

@@ -25,9 +25,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-      POSTGRES_DB: ${POSTGRES_DB:-game}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
     ports:
       - "5432:5432"
     volumes:
@@ -50,7 +50,7 @@ services:
       - "14250:14250"  # gRPC
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.54.1
     ports:
       - "9090:9090"
     volumes:
@@ -61,12 +61,12 @@ services:
       - '--storage.tsdb.path=/prometheus'
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.2.2
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER must be set}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
     volumes:
       - grafana_data:/var/lib/grafana
       - ../../ops/grafana-dashboards:/etc/grafana/provisioning/dashboards
@@ -77,10 +77,10 @@ services:
       context: ../../services/api
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/game
+      DATABASE_URL: postgresql://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@postgres:5432/${POSTGRES_DB:?}
       REDIS_URL: redis://redis:6379
       NATS_URL: nats://nats:4222
-      JWT_SECRET_KEY: dev-secret-key-change-in-production
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
     ports:
       - "8080:8080"
     depends_on:

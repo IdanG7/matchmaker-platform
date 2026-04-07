@@ -6,7 +6,7 @@ Listens for matches created by the matchmaker and allocates game sessions.
 
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from utils.database import get_db_pool
 from utils.session_manager import (
     get_server_allocator,
@@ -153,7 +153,7 @@ async def handle_match_found(message: dict):
                     server_endpoint,
                     session_token,
                     SessionStatus.ACTIVE,
-                    datetime.utcnow(),
+                    datetime.now(timezone.utc),
                     match_id,
                 )
 

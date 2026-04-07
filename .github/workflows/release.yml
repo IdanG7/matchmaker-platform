@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for CI workflow
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.3.4  # pinned: review before bumping
         with:
           ref: ${{ github.event.release.target_commitish }}
           check-name: 'Build Summary'
@@ -394,7 +394,7 @@ jobs:
           echo "Release notes generated"
 
       - name: Upload SDK binaries to release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.version }}
           files: |

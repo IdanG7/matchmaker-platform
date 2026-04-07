@@ -4,7 +4,7 @@ Session API routes - Game session management endpoints.
 
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, status
 from utils.database import get_db_pool
 from models.schemas import (
@@ -218,7 +218,7 @@ async def submit_match_result(match_id: str, request: MatchResultRequest):
                 WHERE id = $4
                 """,
                 SessionStatus.ENDED,
-                datetime.utcnow(),
+                datetime.now(timezone.utc),
                 json.dumps(
                     {
                         "winner_team": request.winner_team,

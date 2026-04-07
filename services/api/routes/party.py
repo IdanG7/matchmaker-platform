@@ -102,41 +102,46 @@ async def create_party(
         player_id = current_user["id"]
         region = request.region or current_user["region"]
 
-        # Check if player is already in a party
-        existing = await conn.fetchval(
-            "SELECT party_id FROM game.party_member WHERE player_id = $1", player_id
-        )
-
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Player is already in a party",
+        # Serialize all party-membership writes for this player to eliminate
+        # the TOCTOU race between the existence check and the insert.
+        async with conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtext($1))", str(player_id)
             )
 
-        # Create party
-        party = await conn.fetchrow(
-            """
-            INSERT INTO game.party (leader_id, region, size, max_size, status)
-            VALUES ($1, $2, 1, $3, 'idle')
-            RETURNING id, leader_id, created_at, updated_at, region, size, max_size,
-                      status, queue_mode, team_size, avg_mmr
-            """,
-            player_id,
-            region,
-            request.max_size,
-        )
+            existing = await conn.fetchval(
+                "SELECT party_id FROM game.party_member WHERE player_id = $1",
+                player_id,
+            )
 
-        party_id = party["id"]
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Player is already in a party",
+                )
 
-        # Add leader as first member
-        await conn.execute(
-            """
-            INSERT INTO game.party_member (party_id, player_id, ready)
-            VALUES ($1, $2, TRUE)
-            """,
-            party_id,
-            player_id,
-        )
+            party = await conn.fetchrow(
+                """
+                INSERT INTO game.party (leader_id, region, size, max_size, status)
+                VALUES ($1, $2, 1, $3, 'idle')
+                RETURNING id, leader_id, created_at, updated_at, region, size, max_size,
+                          status, queue_mode, team_size, avg_mmr
+                """,
+                player_id,
+                region,
+                request.max_size,
+            )
+
+            party_id = party["id"]
+
+            await conn.execute(
+                """
+                INSERT INTO game.party_member (party_id, player_id, ready)
+                VALUES ($1, $2, TRUE)
+                """,
+                party_id,
+                player_id,
+            )
 
         logger.info(f"Party {party_id} created by {current_user['username']}")
 
@@ -199,65 +204,67 @@ async def join_party(
     try:
         player_id = current_user["id"]
 
-        # Check if player is already in a party
-        existing = await conn.fetchval(
-            "SELECT party_id FROM game.party_member WHERE player_id = $1", player_id
-        )
-
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Player is already in a party",
+        # Serialize per-player + per-party writes inside one transaction so
+        # the existence check, capacity check, and inserts are atomic.
+        async with conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtext($1))", str(player_id)
             )
 
-        # Fetch party with lock
-        party = await conn.fetchrow(
-            """
-            SELECT id, size, max_size, status
-            FROM game.party
-            WHERE id = $1
-            FOR UPDATE
-            """,
-            party_id,
-        )
-
-        if not party:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Party not found"
+            existing = await conn.fetchval(
+                "SELECT party_id FROM game.party_member WHERE player_id = $1",
+                player_id,
             )
 
-        # Check if party is full
-        if party["size"] >= party["max_size"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Party is full"
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Player is already in a party",
+                )
+
+            party = await conn.fetchrow(
+                """
+                SELECT id, size, max_size, status
+                FROM game.party
+                WHERE id = $1
+                FOR UPDATE
+                """,
+                party_id,
             )
 
-        # Check party status
-        if party["status"] not in ["idle", "queueing"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot join party in {party['status']} status",
+            if not party:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Party not found"
+                )
+
+            if party["size"] >= party["max_size"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="Party is full"
+                )
+
+            if party["status"] not in ["idle", "queueing"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot join party in {party['status']} status",
+                )
+
+            await conn.execute(
+                """
+                INSERT INTO game.party_member (party_id, player_id, ready)
+                VALUES ($1, $2, FALSE)
+                """,
+                party_id,
+                player_id,
             )
 
-        # Add member
-        await conn.execute(
-            """
-            INSERT INTO game.party_member (party_id, player_id, ready)
-            VALUES ($1, $2, FALSE)
-            """,
-            party_id,
-            player_id,
-        )
-
-        # Update party size
-        await conn.execute(
-            """
-            UPDATE game.party
-            SET size = size + 1, updated_at = now()
-            WHERE id = $1
-            """,
-            party_id,
-        )
+            await conn.execute(
+                """
+                UPDATE game.party
+                SET size = size + 1, updated_at = now()
+                WHERE id = $1
+                """,
+                party_id,
+            )
 
         logger.info(f"Player {current_user['username']} joined party {party_id}")
 

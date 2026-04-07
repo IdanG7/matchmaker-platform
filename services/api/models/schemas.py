@@ -3,8 +3,8 @@ Pydantic schemas for request and response models.
 """
 
 from typing import Optional, List
-from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, validator
+from datetime import datetime, timezone
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # ============================================================================
@@ -20,7 +20,8 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     region: str = Field(default="us-west", pattern="^[a-z]{2}-[a-z]+$")
 
-    @validator("username")
+    @field_validator("username")
+    @classmethod
     def username_alphanumeric(cls, v):
         """Validate username is alphanumeric."""
         if not v.replace("-", "").replace("_", "").isalnum():
@@ -185,7 +186,7 @@ class WebSocketMessage(BaseModel):
 
     event: str
     data: dict
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ============================================================================

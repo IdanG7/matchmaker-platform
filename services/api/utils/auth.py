@@ -2,9 +2,10 @@
 Authentication utilities: JWT tokens and password hashing.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 from passlib.context import CryptContext
 
 from config import get_settings
@@ -37,7 +38,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         Encoded JWT token string
     """
     to_encode = data.copy()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     if expires_delta:
         expire = now + expires_delta
@@ -63,7 +64,7 @@ def create_refresh_token(data: dict) -> str:
         Encoded JWT token string
     """
     to_encode = data.copy()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expire = now + timedelta(days=settings.jwt_refresh_token_expire_days)
     # Use timestamp for iat to ensure microsecond precision
     to_encode.update({"exp": expire, "iat": now.timestamp(), "type": "refresh"})
@@ -88,7 +89,7 @@ def decode_token(token: str) -> Optional[dict]:
             token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
         )
         return payload
-    except JWTError:
+    except PyJWTError:
         return None
 
 

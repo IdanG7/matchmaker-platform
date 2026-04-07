@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11.9-slim-bookworm
 
 WORKDIR /app
 
@@ -19,4 +19,4 @@ COPY . .
 EXPOSE 8080
 
 # Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]

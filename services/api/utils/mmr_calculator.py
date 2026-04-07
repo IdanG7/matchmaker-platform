@@ -87,13 +87,13 @@ def calculate_team_mmr_changes(
 
 def get_season_id() -> str:
     """
-    Get current season identifier.
-
-    In production, this would be configured or calculated from calendar.
-    For now, returns a static season.
+    Get current season identifier based on the current UTC date.
 
     Returns:
-        Season identifier (e.g., "2025-Q1")
+        Season identifier in the form "YYYY-Q{1-4}"
     """
-    # TODO: Calculate based on current date or config
-    return "2025-Q1"
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    quarter = (now.month - 1) // 3 + 1
+    return f"{now.year}-Q{quarter}"

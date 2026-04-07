@@ -5,13 +5,21 @@ include(FetchContent)
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG v1.14.0
+  GIT_TAG v1.15.2
 )
 FetchContent_MakeAvailable(googletest)
 
+# Silence AppleClang 21 -Wcharacter-conversion warning in gtest-printers.h
+# (char8_t -> char32_t implicit cast). gtest is third-party; don't fail on its warnings.
+foreach(_gtest_target gtest gtest_main gmock gmock_main)
+    if(TARGET ${_gtest_target})
+        target_compile_options(${_gtest_target} PRIVATE -Wno-error -w)
+    endif()
+endforeach()
+
 # Test executable
 add_executable(matchmaker_tests
-    test_matchmaking.cpp
+    test_main.cpp
     ../src/queue_manager.cpp
     ../src/team_builder.cpp
 )

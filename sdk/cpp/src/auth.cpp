@@ -67,18 +67,17 @@ AuthResult Auth::login(const std::string& base_url,
             auto response = json::parse(res->body);
             return AuthResult{
                 true,
-                response["access_token"],
-                response["refresh_token"],
+                response.value("access_token", ""),
+                response.value("refresh_token", ""),
                 ""
             };
         } else {
-            auto error = json::parse(res->body);
-            return AuthResult{
-                false,
-                "",
-                "",
-                error.value("detail", "Login failed")
-            };
+            try {
+                auto error = json::parse(res->body);
+                return AuthResult{false, "", "", error.value("detail", "Login failed")};
+            } catch (const json::exception&) {
+                return AuthResult{false, "", "", "Login failed (invalid server response)"};
+            }
         }
     } catch (const std::exception& e) {
         return AuthResult{false, "", "", std::string("Exception: ") + e.what()};
@@ -114,18 +113,17 @@ AuthResult Auth::register_user(const std::string& base_url,
             auto response = json::parse(res->body);
             return AuthResult{
                 true,
-                response["access_token"],
-                response["refresh_token"],
+                response.value("access_token", ""),
+                response.value("refresh_token", ""),
                 ""
             };
         } else {
-            auto error = json::parse(res->body);
-            return AuthResult{
-                false,
-                "",
-                "",
-                error.value("detail", "Registration failed")
-            };
+            try {
+                auto error = json::parse(res->body);
+                return AuthResult{false, "", "", error.value("detail", "Registration failed")};
+            } catch (const json::exception&) {
+                return AuthResult{false, "", "", "Registration failed (invalid server response)"};
+            }
         }
     } catch (const std::exception& e) {
         return AuthResult{false, "", "", std::string("Exception: ") + e.what()};
@@ -155,18 +153,17 @@ AuthResult Auth::refresh(const std::string& base_url,
             auto response = json::parse(res->body);
             return AuthResult{
                 true,
-                response["access_token"],
+                response.value("access_token", ""),
                 refresh_token, // Keep same refresh token
                 ""
             };
         } else {
-            auto error = json::parse(res->body);
-            return AuthResult{
-                false,
-                "",
-                "",
-                error.value("detail", "Token refresh failed")
-            };
+            try {
+                auto error = json::parse(res->body);
+                return AuthResult{false, "", "", error.value("detail", "Token refresh failed")};
+            } catch (const json::exception&) {
+                return AuthResult{false, "", "", "Token refresh failed (invalid server response)"};
+            }
         }
     } catch (const std::exception& e) {
         return AuthResult{false, "", "", std::string("Exception: ") + e.what()};

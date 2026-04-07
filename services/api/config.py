@@ -12,7 +12,10 @@ class Settings(BaseSettings):
     # Service
     service_name: str = "api"
     environment: str = "development"
-    debug: bool = True
+    debug: bool = False
+
+    # CORS allowed origins (comma-separated list, or "*" for any — only allowed in development)
+    cors_allowed_origins: str = "*"
 
     # Server
     host: str = "0.0.0.0"  # nosec B104 - binding to all interfaces is intentional
@@ -46,4 +49,13 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()
+    settings = Settings()
+    # Fail-fast: refuse to run in production with the default JWT secret.
+    if (
+        settings.environment.lower() not in ("development", "dev", "test", "testing")
+        and settings.jwt_secret_key == "your-secret-key-change-in-production"
+    ):
+        raise RuntimeError(
+            "JWT_SECRET_KEY must be set to a strong, unique value outside of development"
+        )
+    return settings

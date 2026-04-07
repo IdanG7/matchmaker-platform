@@ -105,20 +105,21 @@ std::vector<MatchResult> QueueManager::process_bucket(
             break;
         }
 
-        // Generate UUID v4 for match ID
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
-        static std::uniform_int_distribution<uint32_t> dis;
+        // Generate UUID v4 for match ID using a non-deterministic source.
+        // std::random_device is queried for every draw so the output cannot
+        // be reconstructed from prior match IDs the way an mt19937 stream can.
+        static thread_local std::random_device rd;
+        auto draw = [&]() -> uint32_t { return rd(); };
 
         // UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
         std::stringstream ss;
         ss << std::hex << std::setfill('0');
-        ss << std::setw(8) << dis(gen) << "-";
-        ss << std::setw(4) << (dis(gen) & 0xFFFF) << "-";
-        ss << std::setw(4) << ((dis(gen) & 0x0FFF) | 0x4000) << "-";  // Version 4
-        ss << std::setw(4) << ((dis(gen) & 0x3FFF) | 0x8000) << "-";  // Variant
-        ss << std::setw(8) << dis(gen);
-        ss << std::setw(4) << (dis(gen) & 0xFFFF);
+        ss << std::setw(8) << draw() << "-";
+        ss << std::setw(4) << (draw() & 0xFFFF) << "-";
+        ss << std::setw(4) << ((draw() & 0x0FFF) | 0x4000) << "-";  // Version 4
+        ss << std::setw(4) << ((draw() & 0x3FFF) | 0x8000) << "-";  // Variant
+        ss << std::setw(8) << draw();
+        ss << std::setw(4) << (draw() & 0xFFFF);
         match.match_id = ss.str();
 
         // Fill in region/mode from bucket

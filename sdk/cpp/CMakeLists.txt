@@ -23,14 +23,14 @@ include(FetchContent)
 FetchContent_Declare(
     httplib
     GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG v0.14.3
+    GIT_TAG v0.15.3
 )
 
 # IXWebSocket for WebSocket
 FetchContent_Declare(
     ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
-    GIT_TAG v11.4.5
+    GIT_TAG v11.4.6
 )
 
 # nlohmann_json for JSON parsing

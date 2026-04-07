@@ -105,11 +105,14 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS middleware
+# CORS middleware — origins from settings allowlist; "*" only allowed in dev
+_cors_origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+if _cors_origins == ["*"] and settings.environment.lower() not in ("development", "dev", "test", "testing"):
+    raise RuntimeError("CORS_ALLOWED_ORIGINS must be an explicit allowlist outside of development")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_origins != ["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
