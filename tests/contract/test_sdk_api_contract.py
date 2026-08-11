@@ -76,9 +76,9 @@ def _sdk_calls() -> list[tuple[str, str, str]]:
         calls.append((method, path, "client.cpp"))
 
     auth_cpp = (SDK_SRC / "auth.cpp").read_text(encoding="utf-8")
-    # client.Post("/v1/auth/login", ...)
-    for match in re.finditer(r'\.(Get|Post|Patch|Delete)\(\s*"([^"]+)"', auth_cpp):
-        calls.append((match.group(1).upper(), match.group(2), "auth.cpp"))
+    # post_auth(base_url, "/v1/auth/login", ...)
+    for match in re.finditer(r'post_auth\(\s*\w+\s*,\s*"([^"]+)"', auth_cpp):
+        calls.append(("POST", match.group(1), "auth.cpp"))
 
     session_cpp = (SDK_SRC / "session.cpp").read_text(encoding="utf-8")
     # post_json(base_url, "/v1/session/" + match_id + "/result", ...)
