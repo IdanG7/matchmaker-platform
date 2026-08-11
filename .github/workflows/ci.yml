@@ -469,8 +469,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 0.28.0 was never published, so this step failed to resolve on every
+      # run and the security job has been red since it was added.
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
