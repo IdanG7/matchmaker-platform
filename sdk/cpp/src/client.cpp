@@ -106,6 +106,7 @@ MatchInfo parse_match_info(const json& j) {
     MatchInfo match;
     match.match_id = get_string(j, "match_id");
     match.server_endpoint = get_string(j, "server_endpoint");
+    match.server_url = get_string(j, "server_url");
     // The server names this field "server_token".
     match.server_token = get_string(j, "server_token");
     match.region = get_string(j, "region");

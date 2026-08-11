@@ -1,0 +1,54 @@
+# Reverse proxy for the hosted demo.
+#
+# Caddy obtains and renews certificates automatically, so everything below is
+# served over TLS. That matters more than convenience here: the demo page is
+# served over https, and a page on https may not open a plain ws:// socket -
+# browsers block it as mixed content - so the game servers have to be reachable
+# over wss:// too.
+#
+# Per-match game servers listen on their own ports, which are not individually
+# addressable over TLS. They are routed by path instead: /gs/9100 proxies to
+# the server on port 9100. The agent is configured to hand clients the matching
+# URL via PUBLIC_URL_TEMPLATE.
+#
+# Replace demo.example.com with your domain, then:
+#   caddy run --config deployments/vps/Caddyfile
+
+demo.example.com {
+	encode gzip
+
+	# Game servers, one path segment per allocated port.
+	#
+	# The matcher restricts this to the agent's range so an arbitrary port on
+	# the host cannot be reached through the proxy.
+	@gameserver path_regexp gs ^/gs/(910[0-9]|9110)$
+	handle @gameserver {
+		uri strip_prefix /gs
+		reverse_proxy 127.0.0.1:{re.gs.1}
+	}
+
+	# Matchmaker API, including the party WebSocket at /v1/ws/*. Caddy upgrades
+	# WebSocket connections without extra configuration.
+	handle /v1/* {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	handle /health {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# The WASM client and its assets. Point this at wherever the built client
+	# lives; `make wasm` in the game repository writes to its web/ directory.
+	handle {
+		root * /srv/zone-control/web
+		try_files {path} /index.html
+		file_server
+	}
+
+	# The .wasm mime type matters: browsers refuse to stream-compile a module
+	# served as anything else.
+	header /*.wasm Content-Type application/wasm
+}
+
+# The agent's own HTTP API is deliberately not exposed. Only the platform's
+# API talks to it, over the docker network.
