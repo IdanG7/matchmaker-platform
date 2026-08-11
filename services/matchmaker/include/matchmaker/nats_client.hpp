@@ -8,49 +8,50 @@
 namespace matchmaker {
 
 /**
- * NATS Client - Simplified wrapper for pub/sub messaging
+ * NATS client for the matchmaker service.
  *
- * Phase 4: Interface-only (can be mocked for testing)
- * Future: Integrate actual nats.c library
+ * Inbound:  matchmaker.queue.{mode}.{region}, carrying queue_enter and
+ *           queue_leave events published by the API.
+ * Outbound: match.found, consumed by the API to create the match record and
+ *           allocate a game server.
  */
 class NatsClient {
 public:
-    using QueueEventCallback = std::function<void(const QueueEntry&)>;
-    using DequeueEventCallback = std::function<void(const std::string& party_id)>;
+    using QueueEnterCallback = std::function<void(const QueueEntry&)>;
+    using QueueLeaveCallback = std::function<void(const std::string& party_id)>;
 
     virtual ~NatsClient() = default;
 
-    // Subscribe to queue events
-    virtual bool subscribe_queue_events(
-        const std::string& subject,
-        QueueEventCallback callback
-    ) = 0;
+    // Subscribes to queue events. The subject is a NATS pattern; use
+    // "matchmaker.queue.>" to catch every mode and region, since '*' matches
+    // only one token and the subject carries two after the prefix.
+    virtual bool subscribe_queue_events(const std::string& subject,
+                                        QueueEnterCallback on_enter,
+                                        QueueLeaveCallback on_leave) = 0;
 
-    // Publish match found event
     virtual bool publish_match_found(const MatchResult& match) = 0;
 
-    // Connection management
     virtual bool connect(const std::string& url) = 0;
     virtual void disconnect() = 0;
     virtual bool is_connected() const = 0;
 };
 
 /**
- * Mock NATS client for testing (no actual network connection)
+ * In-memory client for tests: no sockets, events are driven by hand.
  */
 class MockNatsClient : public NatsClient {
 public:
-    bool subscribe_queue_events(
-        const std::string& /*subject*/,
-        QueueEventCallback callback
-    ) override {
-        queue_callback_ = callback;
+    bool subscribe_queue_events(const std::string& /*subject*/,
+                                QueueEnterCallback on_enter,
+                                QueueLeaveCallback on_leave) override {
+        on_enter_ = std::move(on_enter);
+        on_leave_ = std::move(on_leave);
         return true;
     }
 
     bool publish_match_found(const MatchResult& match) override {
         last_match_ = match;
-        match_count_++;
+        matches_.push_back(match);
         return true;
     }
 
@@ -59,41 +60,30 @@ public:
         return true;
     }
 
-    void disconnect() override {
-        connected_ = false;
-    }
-
-    bool is_connected() const override {
-        return connected_;
-    }
+    void disconnect() override { connected_ = false; }
+    bool is_connected() const override { return connected_; }
 
     // Test helpers
-    void simulate_queue_event(const QueueEntry& entry) {
-        if (queue_callback_) {
-            queue_callback_(entry);
-        }
+    void simulate_queue_enter(const QueueEntry& entry) {
+        if (on_enter_) on_enter_(entry);
+    }
+    void simulate_queue_leave(const std::string& party_id) {
+        if (on_leave_) on_leave_(party_id);
     }
 
     const MatchResult& get_last_match() const { return last_match_; }
-    size_t get_match_count() const { return match_count_; }
+    size_t get_match_count() const { return matches_.size(); }
+    const std::vector<MatchResult>& get_matches() const { return matches_; }
 
 private:
     bool connected_ = false;
-    QueueEventCallback queue_callback_;
+    QueueEnterCallback on_enter_;
+    QueueLeaveCallback on_leave_;
     MatchResult last_match_;
-    size_t match_count_ = 0;
+    std::vector<MatchResult> matches_;
 };
 
-/**
- * Factory function to create NATS client
- * Currently returns mock client, can be updated to return real client later
- */
-inline std::unique_ptr<NatsClient> create_nats_client(bool use_mock = true) {
-    if (use_mock) {
-        return std::make_unique<MockNatsClient>();
-    }
-    // TODO: Return real NATS client when integrated
-    return std::make_unique<MockNatsClient>();
-}
+// Creates a client backed by a real NATS connection, or the in-memory mock.
+std::unique_ptr<NatsClient> create_nats_client(bool use_mock = false);
 
 } // namespace matchmaker

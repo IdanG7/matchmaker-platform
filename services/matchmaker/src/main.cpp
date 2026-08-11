@@ -5,6 +5,8 @@
 #include <chrono>
 #include <thread>
 #include <csignal>
+#include <cstdlib>
+#include <string>
 #include <atomic>
 
 namespace {
@@ -14,6 +16,22 @@ void signal_handler(int signal) {
     if (signal == SIGINT || signal == SIGTERM) {
         spdlog::info("Received shutdown signal");
         g_running = false;
+    }
+}
+
+std::string env_str(const char* name, const std::string& fallback) {
+    const char* value = std::getenv(name);
+    return (value && *value) ? std::string(value) : fallback;
+}
+
+int env_int(const char* name, int fallback) {
+    const char* value = std::getenv(name);
+    if (!value || !*value) return fallback;
+    try {
+        return std::stoi(value);
+    } catch (const std::exception&) {
+        spdlog::warn("{}='{}' is not a number, using {}", name, value, fallback);
+        return fallback;
     }
 }
 }
@@ -29,30 +47,37 @@ int main() {
 
     // Configuration
     matchmaker::QueueConfig config;
-    config.mmr_band_initial = 100;
-    config.mmr_band_max = 500;
-    config.mmr_band_growth_per_sec = 10;
-    config.max_wait_time_sec = 120;
+    config.mmr_band_initial = env_int("MM_MMR_BAND_INITIAL", 100);
+    config.mmr_band_max = env_int("MM_MMR_BAND_MAX", 500);
+    config.mmr_band_growth_per_sec = env_int("MM_MMR_BAND_GROWTH_PER_SECOND", 10);
+    config.max_wait_time_sec = env_int("MM_MAX_WAIT_TIME_SECONDS", 120);
     config.min_match_quality = 0.6;
 
     // Initialize queue manager
     matchmaker::QueueManager queue_manager(config);
 
-    // Initialize NATS client (mock for now)
-    auto nats = matchmaker::create_nats_client(true);
+    const std::string nats_url = env_str("NATS_URL", "nats://localhost:4222");
+    const bool use_mock = env_str("MM_USE_MOCK_NATS", "0") == "1";
 
-    if (!nats->connect("nats://localhost:4222")) {
-        spdlog::error("Failed to connect to NATS");
+    auto nats = matchmaker::create_nats_client(use_mock);
+
+    if (!nats->connect(nats_url)) {
+        spdlog::error("Failed to connect to NATS at {}", nats_url);
         return 1;
     }
 
-    // Subscribe to queue events
+    // '>' matches the remaining tokens; the API publishes to
+    // matchmaker.queue.{mode}.{region}, which a single '*' would not match.
     nats->subscribe_queue_events(
-        "matchmaker.queue.*",
+        "matchmaker.queue.>",
         [&queue_manager](const matchmaker::QueueEntry& entry) {
-            spdlog::info("Queue event: party={}, region={}, mode={}, mmr={}",
-                entry.party_id, entry.region, entry.mode, entry.avg_mmr);
+            spdlog::info("Queue enter: party={}, region={}, mode={}, team_size={}, mmr={}",
+                entry.party_id, entry.region, entry.mode, entry.team_size, entry.avg_mmr);
             queue_manager.enqueue(entry);
+        },
+        [&queue_manager](const std::string& party_id) {
+            spdlog::info("Queue leave: party={}", party_id);
+            queue_manager.dequeue(party_id);
         }
     );
 
