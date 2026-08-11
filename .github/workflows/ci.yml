@@ -303,10 +303,13 @@ jobs:
         with:
           python-version: '3.11'
 
+      # Compose reads .env from the directory holding the compose file. The
+      # game-agent service stays out of this: it is behind the "game" profile
+      # and builds from the game repository, which CI does not check out.
       - name: Create .env file
         run: |
-          cp .env.example .env
-          echo "JWT_SECRET_KEY=test-secret-key-for-ci-testing-must-be-at-least-32-chars" >> .env
+          cp deployments/docker/.env.example deployments/docker/.env
+          sed -i 's|^JWT_SECRET_KEY=.*|JWT_SECRET_KEY=test-secret-key-for-ci-testing-must-be-at-least-32-chars|'             deployments/docker/.env
 
       - name: Start all services
         run: |
@@ -315,7 +318,7 @@ jobs:
       - name: Wait for PostgreSQL to be ready
         run: |
           echo "Waiting for PostgreSQL..."
-          timeout 60 bash -c 'until docker compose -f deployments/docker/docker-compose.yml exec -T postgres pg_isready -U postgres; do sleep 2; done'
+          timeout 60 bash -c 'until docker compose -f deployments/docker/docker-compose.yml exec -T postgres pg_isready -U multiplayer -d multiplayer; do sleep 2; done'
 
       - name: Wait for Redis to be ready
         run: |
@@ -336,13 +339,13 @@ jobs:
       - name: Initialize database schema
         run: |
           echo "Initializing database schema..."
-          docker compose -f deployments/docker/docker-compose.yml exec -T postgres psql -U postgres -d game -f - < db/migrations/init.sql
+          docker compose -f deployments/docker/docker-compose.yml exec -T postgres psql -v ON_ERROR_STOP=1 -U multiplayer -d multiplayer -f - < db/migrations/init.sql
           echo "✅ Database schema initialized!"
 
       - name: Verify database schema
         run: |
           echo "Checking database schema..."
-          docker compose -f deployments/docker/docker-compose.yml exec -T postgres psql -U postgres -d game -c "\dt game.*" || echo "Schema check completed"
+          docker compose -f deployments/docker/docker-compose.yml exec -T postgres psql -U multiplayer -d multiplayer -c "\dt game.*" || echo "Schema check completed"
 
       - name: Check service health
         run: |
