@@ -14,6 +14,9 @@ public:
     Client(const std::string& base_url, const std::string& token);
     ~Client();
 
+    // The bearer token this client authenticates with.
+    const std::string& token() const;
+
     // Profile operations
     Profile get_profile();
     void update_profile(const Profile& profile);

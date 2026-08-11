@@ -9,10 +9,17 @@
 // flow against a live stack is covered by examples/party_test.cpp and by the
 // SDK/API route contract test in tests/contract/.
 
+// Base URL for the "no server" tests. Port 9 is the discard port and nothing
+// listens on it, whereas 8080 is where the local stack runs - pointing these
+// at 8080 made them pass or fail depending on whether it happened to be up.
+namespace {
+constexpr const char* kNoServer = "http://127.0.0.1:9";
+}
+
 // --- Auth failure handling -------------------------------------------------
 
 TEST(AuthTest, LoginFailsWithoutServer) {
-    auto result = game::Auth::login("http://localhost:8080", "testuser", "password");
+    auto result = game::Auth::login(kNoServer, "testuser", "password");
     EXPECT_FALSE(result.success);
     EXPECT_EQ(result.error, "Connection failed");
     EXPECT_TRUE(result.access_token.empty());
@@ -20,14 +27,14 @@ TEST(AuthTest, LoginFailsWithoutServer) {
 }
 
 TEST(AuthTest, RegisterFailsWithoutServer) {
-    auto result = game::Auth::register_user("http://localhost:8080", "user@test.com",
+    auto result = game::Auth::register_user(kNoServer, "user@test.com",
                                             "testuser", "password", "us-west");
     EXPECT_FALSE(result.success);
     EXPECT_EQ(result.error, "Connection failed");
 }
 
 TEST(AuthTest, RefreshFailsWithoutServer) {
-    auto result = game::Auth::refresh("http://localhost:8080", "refresh_token");
+    auto result = game::Auth::refresh(kNoServer, "refresh_token");
     EXPECT_FALSE(result.success);
     EXPECT_EQ(result.error, "Connection failed");
 }
@@ -133,46 +140,49 @@ TEST(MatchInfoTest, RejectsPortZero) {
 // --- SDK lifecycle ---------------------------------------------------------
 
 TEST(SDKTest, CanConstruct) {
-    EXPECT_NO_THROW(game::SDK sdk("http://localhost:8080"));
+    EXPECT_NO_THROW(game::SDK sdk(kNoServer));
 }
 
 TEST(SDKTest, StartsUnauthenticated) {
-    game::SDK sdk("http://localhost:8080");
+    game::SDK sdk(kNoServer);
     EXPECT_FALSE(sdk.is_authenticated());
     EXPECT_TRUE(sdk.token().empty());
 }
 
 TEST(SDKTest, SetTokenMarksAuthenticated) {
-    game::SDK sdk("http://localhost:8080");
+    game::SDK sdk(kNoServer);
     sdk.set_token("test_token");
     EXPECT_TRUE(sdk.is_authenticated());
     EXPECT_EQ(sdk.token(), "test_token");
 }
 
-// The client caches the token it was constructed with, so changing the token
-// has to hand back a rebuilt client rather than one still using the old one.
-TEST(SDKTest, ChangingTokenRebuildsClient) {
-    game::SDK sdk("http://localhost:8080");
+// The client captures the token at construction, so changing the token has to
+// produce a client carrying the new one rather than the stale value.
+//
+// Asserting on the identity of the returned reference would not work: the
+// replacement is frequently allocated at the address the old one just freed,
+// so the pointers compare equal even though the object was rebuilt.
+TEST(SDKTest, ChangingTokenUpdatesTheClient) {
+    game::SDK sdk(kNoServer);
+
     sdk.set_token("first_token");
-    game::Client* first = &sdk.client();
+    EXPECT_EQ(sdk.client().token(), "first_token");
 
     sdk.set_token("second_token");
-    game::Client* second = &sdk.client();
-
-    EXPECT_NE(first, second);
+    EXPECT_EQ(sdk.client().token(), "second_token");
 }
 
-TEST(SDKTest, SettingSameTokenKeepsClient) {
-    game::SDK sdk("http://localhost:8080");
+TEST(SDKTest, ClientTokenMatchesTheSdkToken) {
+    game::SDK sdk(kNoServer);
     sdk.set_token("same_token");
-    game::Client* first = &sdk.client();
 
-    sdk.set_token("same_token");
-    EXPECT_EQ(first, &sdk.client());
+    EXPECT_EQ(sdk.client().token(), sdk.token());
+    // Repeated access keeps working on the same token.
+    EXPECT_EQ(sdk.client().token(), "same_token");
 }
 
 TEST(SDKTest, LoginFailsWithoutServer) {
-    game::SDK sdk("http://localhost:8080");
+    game::SDK sdk(kNoServer);
     auto result = sdk.login("testuser", "password");
     EXPECT_FALSE(result.success);
     EXPECT_FALSE(sdk.is_authenticated());
@@ -181,21 +191,21 @@ TEST(SDKTest, LoginFailsWithoutServer) {
 // --- Client ----------------------------------------------------------------
 
 TEST(ClientTest, CanConstruct) {
-    EXPECT_NO_THROW(game::Client client("http://localhost:8080", "test_token"));
+    EXPECT_NO_THROW(game::Client client(kNoServer, "test_token"));
 }
 
 TEST(ClientTest, GetProfileThrowsWithoutServer) {
-    game::Client client("http://localhost:8080", "test_token");
+    game::Client client(kNoServer, "test_token");
     EXPECT_THROW(client.get_profile(), std::runtime_error);
 }
 
 TEST(ClientTest, CreatePartyThrowsWithoutServer) {
-    game::Client client("http://localhost:8080", "test_token");
+    game::Client client(kNoServer, "test_token");
     EXPECT_THROW(client.create_party(), std::runtime_error);
 }
 
 TEST(ClientTest, PartyOperationsThrowWithoutServer) {
-    game::Client client("http://localhost:8080", "test_token");
+    game::Client client(kNoServer, "test_token");
     EXPECT_THROW(client.get_party("party-1"), std::runtime_error);
     EXPECT_THROW(client.join_party("party-1"), std::runtime_error);
     EXPECT_THROW(client.leave_party("party-1"), std::runtime_error);
@@ -205,25 +215,25 @@ TEST(ClientTest, PartyOperationsThrowWithoutServer) {
 }
 
 TEST(ClientTest, WebSocketNotConnectedByDefault) {
-    game::Client client("http://localhost:8080", "test_token");
+    game::Client client(kNoServer, "test_token");
     EXPECT_FALSE(client.is_ws_connected());
 }
 
 // Connecting to a server that is not there must report failure rather than
 // silently leaving a socket that never delivers events.
 TEST(ClientTest, ConnectWsThrowsWithoutServer) {
-    game::Client client("http://localhost:8080", "test_token");
+    game::Client client(kNoServer, "test_token");
     EXPECT_THROW(client.connect_ws("party-1"), std::runtime_error);
     EXPECT_FALSE(client.is_ws_connected());
 }
 
 TEST(ClientTest, DisconnectWsIsSafeWhenNeverConnected) {
-    game::Client client("http://localhost:8080", "test_token");
+    game::Client client(kNoServer, "test_token");
     EXPECT_NO_THROW(client.disconnect_ws());
 }
 
 TEST(ClientTest, CanSetCallbacks) {
-    game::Client client("http://localhost:8080", "test_token");
+    game::Client client(kNoServer, "test_token");
 
     EXPECT_NO_THROW(client.on_match_found([](const game::MatchInfo&) {}));
     EXPECT_NO_THROW(client.on_lobby_update([](const game::LobbyEvent&) {}));

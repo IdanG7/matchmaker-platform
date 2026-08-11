@@ -371,6 +371,10 @@ Client::Client(const std::string& base_url, const std::string& token)
 
 Client::~Client() = default;
 
+const std::string& Client::token() const {
+    return impl_->token;
+}
+
 Profile Client::get_profile() {
     return parse_profile(impl_->request("GET", "/v1/profile/me", "", "Failed to get profile"));
 }
