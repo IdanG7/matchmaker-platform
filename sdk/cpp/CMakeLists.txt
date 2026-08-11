@@ -26,7 +26,25 @@ FetchContent_Declare(
     GIT_TAG v0.15.3
 )
 
-# IXWebSocket for WebSocket
+# IXWebSocket for WebSocket.
+#
+# zlib only backs permessage-deflate, which we do not use, so it is disabled
+# rather than dragged in as a platform dependency. TLS is enabled only when
+# OpenSSL is already present: without this the build hard-fails on machines
+# that have neither, which is what the vcpkg/chocolatey CI workarounds were
+# compensating for.
+set(USE_ZLIB OFF CACHE BOOL "" FORCE)
+set(IXWEBSOCKET_INSTALL OFF CACHE BOOL "" FORCE)
+
+find_package(OpenSSL QUIET)
+if(OPENSSL_FOUND)
+    message(STATUS "OpenSSL found - enabling TLS (wss:// and https:// supported)")
+    set(USE_TLS ON CACHE BOOL "" FORCE)
+else()
+    message(STATUS "OpenSSL not found - building without TLS (ws:// and http:// only)")
+    set(USE_TLS OFF CACHE BOOL "" FORCE)
+endif()
+
 FetchContent_Declare(
     ixwebsocket
     GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
@@ -47,7 +65,6 @@ set(SOURCES
     src/sdk.cpp
     src/client.cpp
     src/auth.cpp
-    src/websocket.cpp
 )
 
 set(HEADERS

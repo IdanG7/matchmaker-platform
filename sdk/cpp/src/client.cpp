@@ -1,4 +1,5 @@
 #include "game/client.hpp"
+#include "url.hpp"
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 #include <ixwebsocket/IXWebSocket.h>
@@ -8,197 +9,359 @@
 #include <atomic>
 #include <condition_variable>
 #include <chrono>
-#include <thread>
 
 using json = nlohmann::json;
 
 namespace game {
 
-// Forward declaration of WebSocket wrapper
 namespace {
-    class WebSocketWrapper {
-    public:
-        WebSocketWrapper(const std::string& ws_url, const std::string& token)
-            : connected_(false) {
 
-            ws_.setUrl(ws_url + "?token=" + token);
+// --- WebSocket ------------------------------------------------------------
 
-            ws_.setOnMessageCallback([this](const ix::WebSocketMessagePtr& msg) {
-                this->onMessage(msg);
-            });
-        }
-
-        ~WebSocketWrapper() {
-            disconnect();
-        }
-
-        void connect() {
-            ws_.start();
-            // Wait for connection or timeout (5s) using a condition variable
-            std::unique_lock<std::mutex> lk(state_mutex_);
-            state_cv_.wait_for(lk, std::chrono::seconds(5),
-                               [this]() { return connected_.load(); });
-        }
-
-        void disconnect() {
-            ws_.stop();
-            {
-                std::lock_guard<std::mutex> lk(state_mutex_);
-                connected_ = false;
-            }
-            state_cv_.notify_all();
-        }
-
-        bool is_connected() const {
-            return connected_.load();
-        }
-
-        void set_event_callback(std::function<void(const std::string&, const json&)> callback) {
-            std::lock_guard<std::mutex> lock(callback_mutex_);
-            event_callback_ = callback;
-        }
-
-    private:
-        void onMessage(const ix::WebSocketMessagePtr& msg) {
-            if (msg->type == ix::WebSocketMessageType::Open) {
-                {
-                    std::lock_guard<std::mutex> lk(state_mutex_);
-                    connected_ = true;
-                }
-                state_cv_.notify_all();
-            } else if (msg->type == ix::WebSocketMessageType::Close) {
-                {
-                    std::lock_guard<std::mutex> lk(state_mutex_);
-                    connected_ = false;
-                }
-                state_cv_.notify_all();
-            } else if (msg->type == ix::WebSocketMessageType::Message) {
-                try {
-                    auto data = json::parse(msg->str);
-                    std::string event = data.value("event", "unknown");
-                    json event_data = data.value("data", json::object());
-
-                    std::lock_guard<std::mutex> lock(callback_mutex_);
-                    if (event_callback_) {
-                        event_callback_(event, event_data);
-                    }
-                } catch (const std::exception&) {
-                    // Ignore parse errors
-                }
-            } else if (msg->type == ix::WebSocketMessageType::Error) {
-                {
-                    std::lock_guard<std::mutex> lk(state_mutex_);
-                    connected_ = false;
-                }
-                state_cv_.notify_all();
-            }
-        }
-
-        ix::WebSocket ws_;
-        std::atomic<bool> connected_;
-        std::function<void(const std::string&, const json&)> event_callback_;
-        std::mutex callback_mutex_;
-        std::mutex state_mutex_;
-        std::condition_variable state_cv_;
-    };
-}
-
-namespace {
-    // Helper to parse URL into host and port
-    struct ParsedURL {
-        std::string scheme;
-        std::string host;
-        int port;
-    };
-
-    ParsedURL parse_url(const std::string& url) {
-        ParsedURL result;
-        size_t scheme_end = url.find("://");
-        if (scheme_end != std::string::npos) {
-            result.scheme = url.substr(0, scheme_end);
-            size_t host_start = scheme_end + 3;
-            size_t port_start = url.find(":", host_start);
-            if (port_start != std::string::npos) {
-                result.host = url.substr(host_start, port_start - host_start);
-                result.port = std::stoi(url.substr(port_start + 1));
-            } else {
-                result.host = url.substr(host_start);
-                result.port = (result.scheme == "https") ? 443 : 80;
-            }
-        } else {
-            result.scheme = "http";
-            result.host = "localhost";
-            result.port = 8080;
-        }
-        return result;
+class WebSocketWrapper {
+public:
+    WebSocketWrapper(const std::string& ws_url, const std::string& token)
+        : connected_(false) {
+        ws_.setUrl(ws_url + "?token=" + token);
+        ws_.setOnMessageCallback([this](const ix::WebSocketMessagePtr& msg) {
+            this->onMessage(msg);
+        });
     }
+
+    ~WebSocketWrapper() { disconnect(); }
+
+    // Blocks until the socket opens or the timeout expires. Returns whether it
+    // opened, so callers can surface a failure instead of silently proceeding
+    // with a socket that will never deliver events.
+    bool connect(std::chrono::seconds timeout = std::chrono::seconds(5)) {
+        ws_.start();
+        std::unique_lock<std::mutex> lk(state_mutex_);
+        state_cv_.wait_for(lk, timeout, [this] { return connected_.load(); });
+        return connected_.load();
+    }
+
+    void disconnect() {
+        ws_.stop();
+        {
+            std::lock_guard<std::mutex> lk(state_mutex_);
+            connected_ = false;
+        }
+        state_cv_.notify_all();
+    }
+
+    bool is_connected() const { return connected_.load(); }
+
+    void set_event_callback(std::function<void(const std::string&, const json&)> cb) {
+        std::lock_guard<std::mutex> lock(callback_mutex_);
+        event_callback_ = std::move(cb);
+    }
+
+private:
+    void set_connected(bool value) {
+        {
+            std::lock_guard<std::mutex> lk(state_mutex_);
+            connected_ = value;
+        }
+        state_cv_.notify_all();
+    }
+
+    void onMessage(const ix::WebSocketMessagePtr& msg) {
+        switch (msg->type) {
+        case ix::WebSocketMessageType::Open:
+            set_connected(true);
+            break;
+        case ix::WebSocketMessageType::Close:
+        case ix::WebSocketMessageType::Error:
+            set_connected(false);
+            break;
+        case ix::WebSocketMessageType::Message: {
+            json parsed;
+            try {
+                parsed = json::parse(msg->str);
+            } catch (const json::exception&) {
+                return; // ignore malformed frames
+            }
+            const std::string event = parsed.value("event", "");
+            const json data = parsed.value("data", json::object());
+
+            std::function<void(const std::string&, const json&)> cb;
+            {
+                std::lock_guard<std::mutex> lock(callback_mutex_);
+                cb = event_callback_;
+            }
+            if (cb) cb(event, data);
+            break;
+        }
+        default:
+            break;
+        }
+    }
+
+    ix::WebSocket ws_;
+    std::atomic<bool> connected_;
+    std::function<void(const std::string&, const json&)> event_callback_;
+    std::mutex callback_mutex_;
+    std::mutex state_mutex_;
+    std::condition_variable state_cv_;
+};
+
+// --- Response parsing -----------------------------------------------------
+
+// Pulls the API's error message out of a body, falling back to a generic one.
+std::string error_detail(const std::string& body, const std::string& fallback) {
+    try {
+        const auto parsed = json::parse(body);
+        if (parsed.contains("detail")) {
+            const auto& detail = parsed["detail"];
+            if (detail.is_string()) return detail.get<std::string>();
+            return detail.dump();
+        }
+    } catch (const json::exception&) {
+        // fall through
+    }
+    return fallback;
 }
+
+std::string get_string(const json& j, const char* key) {
+    if (!j.contains(key) || j[key].is_null()) return {};
+    const auto& v = j[key];
+    return v.is_string() ? v.get<std::string>() : v.dump();
+}
+
+int get_int(const json& j, const char* key, int fallback = 0) {
+    if (!j.contains(key) || !j[key].is_number_integer()) return fallback;
+    return j[key].get<int>();
+}
+
+bool get_bool(const json& j, const char* key, bool fallback = false) {
+    if (!j.contains(key) || !j[key].is_boolean()) return fallback;
+    return j[key].get<bool>();
+}
+
+Party parse_party(const json& j) {
+    Party party;
+    party.id = get_string(j, "id");
+    party.leader_id = get_string(j, "leader_id");
+    party.region = get_string(j, "region");
+    party.size = get_int(j, "size");
+    party.max_size = get_int(j, "max_size");
+    party.status = get_string(j, "status");
+    party.queue_mode = get_string(j, "queue_mode");
+    party.team_size = get_int(j, "team_size");
+
+    // The API returns full member objects under "members".
+    if (j.contains("members") && j["members"].is_array()) {
+        for (const auto& m : j["members"]) {
+            if (!m.is_object()) continue;
+            PartyMember member;
+            member.player_id = get_string(m, "player_id");
+            member.username = get_string(m, "username");
+            member.joined_at = get_string(m, "joined_at");
+            member.ready = get_bool(m, "ready");
+            member.role = get_string(m, "role");
+            party.members.push_back(std::move(member));
+        }
+    }
+    return party;
+}
+
+Profile parse_profile(const json& j) {
+    Profile profile;
+    // The profile endpoint names this "player_id"; "id" is accepted as a
+    // fallback so a future rename does not silently empty the field again.
+    profile.id = get_string(j, "player_id");
+    if (profile.id.empty()) profile.id = get_string(j, "id");
+    profile.username = get_string(j, "username");
+    profile.email = get_string(j, "email");
+    profile.region = get_string(j, "region");
+    profile.mmr = get_int(j, "mmr");
+    return profile;
+}
+
+ReadyCheck parse_ready_check(const json& j) {
+    ReadyCheck rc;
+    rc.party_id = get_string(j, "party_id");
+    rc.ready_count = get_int(j, "ready_count");
+    rc.total_count = get_int(j, "total_count");
+    rc.all_ready = get_bool(j, "all_ready");
+    if (j.contains("not_ready_players") && j["not_ready_players"].is_array()) {
+        for (const auto& p : j["not_ready_players"]) {
+            if (p.is_string()) rc.not_ready_players.push_back(p.get<std::string>());
+        }
+    }
+    return rc;
+}
+
+MatchInfo parse_match_info(const json& j) {
+    MatchInfo match;
+    match.match_id = get_string(j, "match_id");
+    match.server_endpoint = get_string(j, "server_endpoint");
+    // The server names this field "server_token".
+    match.server_token = get_string(j, "server_token");
+    match.region = get_string(j, "region");
+    match.mode = get_string(j, "mode");
+
+    if (j.contains("teams") && j["teams"].is_array()) {
+        for (const auto& team : j["teams"]) {
+            if (!team.is_array()) continue;
+            std::vector<std::string> members;
+            for (const auto& m : team) {
+                if (m.is_string()) members.push_back(m.get<std::string>());
+            }
+            match.teams.push_back(std::move(members));
+        }
+    }
+    return match;
+}
+
+} // namespace
+
+using detail::ParsedURL;
+using detail::parse_url;
+
+bool MatchInfo::split_endpoint(std::string& host, uint16_t& port) const {
+    const size_t colon = server_endpoint.rfind(':');
+    if (colon == std::string::npos || colon == 0 || colon + 1 >= server_endpoint.size()) {
+        return false;
+    }
+    unsigned long parsed = 0;
+    try {
+        parsed = std::stoul(server_endpoint.substr(colon + 1));
+    } catch (const std::exception&) {
+        return false;
+    }
+    if (parsed == 0 || parsed > 65535) return false;
+
+    host = server_endpoint.substr(0, colon);
+    port = static_cast<uint16_t>(parsed);
+    return true;
+}
+
+// --- Client ---------------------------------------------------------------
 
 class Client::Impl {
 public:
     std::string base_url;
     std::string token;
     ParsedURL parsed_url;
+    std::string player_id;  // cached profile id, filled on first use
+
     MatchFoundCallback match_found_callback;
     LobbyUpdateCallback lobby_update_callback;
     EventCallback event_callback;
+    std::mutex callback_mutex;
+
     std::unique_ptr<WebSocketWrapper> ws_client;
 
     Impl(const std::string& url, const std::string& tok)
         : base_url(url), token(tok), parsed_url(parse_url(url)) {}
 
-    httplib::Headers get_auth_headers() const {
-        return {
-            {"Authorization", "Bearer " + token},
-            {"Content-Type", "application/json"}
-        };
+    httplib::Headers auth_headers() const {
+        return {{"Authorization", "Bearer " + token},
+                {"Content-Type", "application/json"}};
+    }
+
+    // Single place where an HTTP call is made, checked, and parsed. Every
+    // endpoint below goes through here so error handling stays consistent.
+    json request(const char* method,
+                 const std::string& path,
+                 const std::string& body,
+                 const std::string& what) {
+        httplib::Client http(parsed_url.host, parsed_url.port);
+        http.set_connection_timeout(5, 0);
+        http.set_read_timeout(10, 0);
+
+        httplib::Result res(nullptr, httplib::Error::Unknown);
+        const std::string m(method);
+        if (m == "GET") {
+            res = http.Get(path.c_str(), auth_headers());
+        } else if (m == "POST") {
+            res = http.Post(path.c_str(), auth_headers(), body, "application/json");
+        } else if (m == "PATCH") {
+            res = http.Patch(path.c_str(), auth_headers(), body, "application/json");
+        } else if (m == "DELETE") {
+            res = http.Delete(path.c_str(), auth_headers());
+        } else {
+            throw std::runtime_error("Unsupported HTTP method: " + m);
+        }
+
+        if (!res) {
+            throw std::runtime_error(what + ": could not reach " + base_url);
+        }
+        if (res->status < 200 || res->status >= 300) {
+            throw std::runtime_error(
+                what + ": " + error_detail(res->body, "HTTP " + std::to_string(res->status)));
+        }
+        if (res->body.empty()) return json::object();
+        try {
+            return json::parse(res->body);
+        } catch (const json::exception&) {
+            throw std::runtime_error(what + ": server returned malformed JSON");
+        }
     }
 
     void handle_ws_event(const std::string& event, const json& data) {
-        // Dispatch to appropriate callback
-        if (event == "match_found" && match_found_callback) {
-            MatchInfo match;
-            match.match_id = data.value("match_id", "");
-            match.server_endpoint = data.value("server_endpoint", "");
-            match.token = data.value("token", "");
-
-            if (data.contains("teams") && data["teams"].is_array()) {
-                for (const auto& team : data["teams"]) {
-                    std::vector<std::string> team_members;
-                    if (team.is_array()) {
-                        for (const auto& member : team) {
-                            team_members.push_back(member.get<std::string>());
-                        }
-                    }
-                    match.teams.push_back(team_members);
-                }
-            }
-
-            match_found_callback(match);
-        } else if ((event == "member_joined" || event == "member_left" ||
-                    event == "member_ready" || event == "party_updated") &&
-                   lobby_update_callback) {
-            Party party;
-            party.id = data.value("party_id", "");
-            party.leader_id = data.value("leader_id", "");
-            party.status = data.value("status", "");
-
-            if (data.contains("member_ids") && data["member_ids"].is_array()) {
-                for (const auto& member : data["member_ids"]) {
-                    party.member_ids.push_back(member.get<std::string>());
-                }
-            }
-
-            lobby_update_callback(party);
+        MatchFoundCallback on_match;
+        LobbyUpdateCallback on_lobby;
+        EventCallback on_event;
+        {
+            std::lock_guard<std::mutex> lock(callback_mutex);
+            on_match = match_found_callback;
+            on_lobby = lobby_update_callback;
+            on_event = event_callback;
         }
 
-        // Always call general event callback if set
-        if (event_callback) {
+        if (event == "match_found") {
+            if (on_match) on_match(parse_match_info(data));
+        } else if (on_lobby) {
+            LobbyEvent ev;
+            ev.party_id = get_string(data, "party_id");
+            ev.player_id = get_string(data, "player_id");
+            ev.username = get_string(data, "username");
+
+            bool recognised = true;
+            if (event == "member_joined") {
+                ev.change = LobbyChange::MemberJoined;
+            } else if (event == "member_left") {
+                ev.change = LobbyChange::MemberLeft;
+            } else if (event == "member_ready") {
+                ev.change = LobbyChange::MemberReady;
+                ev.ready = get_bool(data, "ready");
+            } else if (event == "queue_entered") {
+                ev.change = LobbyChange::QueueEntered;
+                ev.mode = get_string(data, "mode");
+                ev.team_size = get_int(data, "team_size");
+            } else if (event == "queue_left") {
+                ev.change = LobbyChange::QueueLeft;
+            } else if (event == "party_updated") {
+                ev.change = LobbyChange::PartyUpdated;
+                if (data.contains("party") && data["party"].is_object()) {
+                    ev.party = parse_party(data["party"]);
+                }
+            } else {
+                recognised = false;
+            }
+            if (recognised) on_lobby(ev);
+        }
+
+        if (on_event) {
             Event e;
-            e.type = EventType::LobbyUpdate; // Default, could be improved
-            if (event == "match_found") e.type = EventType::MatchFound;
+            e.name = event;
             e.data = data.dump();
-            event_callback(e);
+            if (event == "match_found") {
+                e.type = EventType::MatchFound;
+            } else if (event == "session_started") {
+                e.type = EventType::SessionStarted;
+            } else if (event == "session_ended") {
+                e.type = EventType::SessionEnded;
+            } else if (event == "error") {
+                e.type = EventType::Error;
+            } else if (event == "presence" || event == "heartbeat") {
+                e.type = EventType::PresenceHeartbeat;
+            } else {
+                e.type = EventType::LobbyUpdate;
+            }
+            on_event(e);
         }
     }
 };
@@ -209,208 +372,108 @@ Client::Client(const std::string& base_url, const std::string& token)
 Client::~Client() = default;
 
 Profile Client::get_profile() {
-    httplib::Client client(impl_->parsed_url.host, impl_->parsed_url.port);
-    client.set_connection_timeout(5, 0);
-
-    auto res = client.Get("/v1/profile/me", impl_->get_auth_headers());
-
-    if (!res) {
-        throw std::runtime_error("Failed to connect to server");
-    }
-
-    if (res->status == 200) {
-        try {
-            auto data = json::parse(res->body);
-            return Profile{
-                data.value("id", ""),
-                data.value("username", ""),
-                data.value("email", ""),
-                data.value("region", ""),
-                data.value("mmr", 0)
-            };
-        } catch (const json::exception&) {
-            throw std::runtime_error("Failed to parse profile response");
-        }
-    } else {
-        try {
-            auto error = json::parse(res->body);
-            throw std::runtime_error(error.value("detail", "Failed to get profile"));
-        } catch (const json::exception&) {
-            throw std::runtime_error("Failed to get profile (invalid server response)");
-        }
-    }
+    return parse_profile(impl_->request("GET", "/v1/profile/me", "", "Failed to get profile"));
 }
 
 void Client::update_profile(const Profile& profile) {
-    httplib::Client client(impl_->parsed_url.host, impl_->parsed_url.port);
-    client.set_connection_timeout(5, 0);
-
-    json body;
+    json body = json::object();
     if (!profile.username.empty()) body["username"] = profile.username;
     if (!profile.region.empty()) body["region"] = profile.region;
-
-    auto res = client.Patch("/v1/profile/me",
-                           impl_->get_auth_headers(),
-                           body.dump(),
-                           "application/json");
-
-    if (!res || res->status != 200) {
-        throw std::runtime_error("Failed to update profile");
-    }
+    impl_->request("PATCH", "/v1/profile/me", body.dump(), "Failed to update profile");
 }
 
 Party Client::create_party() {
-    httplib::Client client(impl_->parsed_url.host, impl_->parsed_url.port);
-    client.set_connection_timeout(5, 0);
-
-    auto res = client.Post("/v1/party",
-                          impl_->get_auth_headers(),
-                          "{}",
-                          "application/json");
-
-    if (!res) {
-        throw std::runtime_error("Failed to connect to server");
-    }
-
-    if (res->status == 200 || res->status == 201) {
-        try {
-            auto data = json::parse(res->body);
-            Party party;
-            party.id = data.value("id", "");
-            party.leader_id = data.value("leader_id", "");
-            party.status = data.value("status", "");
-
-            if (data.contains("member_ids") && data["member_ids"].is_array()) {
-                for (const auto& member : data["member_ids"]) {
-                    party.member_ids.push_back(member.get<std::string>());
-                }
-            }
-
-            return party;
-        } catch (const json::exception&) {
-            throw std::runtime_error("Failed to parse create_party response");
-        }
-    } else {
-        try {
-            auto error = json::parse(res->body);
-            throw std::runtime_error(error.value("detail", "Failed to create party"));
-        } catch (const json::exception&) {
-            throw std::runtime_error("Failed to create party (invalid server response)");
-        }
-    }
+    return parse_party(impl_->request("POST", "/v1/party", "{}", "Failed to create party"));
 }
 
-void Client::join_party(const std::string& party_id) {
-    httplib::Client client(impl_->parsed_url.host, impl_->parsed_url.port);
-    client.set_connection_timeout(5, 0);
+Party Client::get_party(const std::string& party_id) {
+    return parse_party(
+        impl_->request("GET", "/v1/party/" + party_id, "", "Failed to get party"));
+}
 
-    std::string path = "/v1/party/" + party_id + "/join";
-    auto res = client.Post(path,
-                          impl_->get_auth_headers(),
-                          "{}",
-                          "application/json");
-
-    if (!res || res->status != 200) {
-        std::string detail = "Failed to join party";
-        if (res) {
-            try {
-                auto error = json::parse(res->body);
-                detail = error.value("detail", detail);
-            } catch (const json::exception&) {}
-        }
-        throw std::runtime_error(detail);
-    }
+Party Client::join_party(const std::string& party_id) {
+    return parse_party(
+        impl_->request("POST", "/v1/party/" + party_id + "/join", "{}", "Failed to join party"));
 }
 
 void Client::leave_party(const std::string& party_id) {
-    httplib::Client client(impl_->parsed_url.host, impl_->parsed_url.port);
-    client.set_connection_timeout(5, 0);
-
-    std::string path = "/v1/party/" + party_id + "/leave";
-    auto res = client.Delete(path, impl_->get_auth_headers());
-
-    if (!res || res->status != 200) {
-        throw std::runtime_error("Failed to leave party");
-    }
+    impl_->request("POST", "/v1/party/" + party_id + "/leave", "{}", "Failed to leave party");
 }
 
-void Client::ready() {
-    httplib::Client client(impl_->parsed_url.host, impl_->parsed_url.port);
-    client.set_connection_timeout(5, 0);
-
-    // Note: This endpoint may need a party_id parameter
-    // For now, we'll assume the backend tracks the player's current party
-    auto res = client.Post("/v1/party/ready",
-                          impl_->get_auth_headers(),
-                          "{}",
-                          "application/json");
-
-    if (!res || res->status != 200) {
-        throw std::runtime_error("Failed to set ready status");
-    }
+ReadyCheck Client::toggle_ready(const std::string& party_id) {
+    return parse_ready_check(impl_->request(
+        "POST", "/v1/party/" + party_id + "/ready", "{}", "Failed to toggle ready"));
 }
 
-void Client::enqueue(const std::string& party_id, const std::string& mode, int team_size) {
-    httplib::Client client(impl_->parsed_url.host, impl_->parsed_url.port);
-    client.set_connection_timeout(5, 0);
+ReadyCheck Client::set_ready(const std::string& party_id, bool ready) {
+    const Party party = get_party(party_id);
 
-    json body = {
-        {"party_id", party_id},
-        {"mode", mode},
-        {"team_size", team_size}
-    };
+    // Work out our own membership. The profile id is stable for the session,
+    // so it is fetched once and reused.
+    if (impl_->player_id.empty()) {
+        impl_->player_id = get_profile().id;
+    }
 
-    auto res = client.Post("/v1/party/queue",
-                          impl_->get_auth_headers(),
-                          body.dump(),
-                          "application/json");
-
-    if (!res || res->status != 200) {
-        std::string detail = "Failed to enter queue";
-        if (res) {
-            try {
-                auto error = json::parse(res->body);
-                detail = error.value("detail", detail);
-            } catch (const json::exception&) {}
+    const PartyMember* self = nullptr;
+    for (const auto& member : party.members) {
+        if (member.player_id == impl_->player_id) {
+            self = &member;
+            break;
         }
-        throw std::runtime_error(detail);
     }
+    if (!self) {
+        throw std::runtime_error("Failed to set ready: not a member of party " + party_id);
+    }
+
+    if (self->ready == ready) {
+        // Already in the requested state; report the tally without toggling.
+        ReadyCheck rc;
+        rc.party_id = party.id;
+        rc.total_count = static_cast<int>(party.members.size());
+        for (const auto& member : party.members) {
+            if (member.ready) {
+                ++rc.ready_count;
+            } else {
+                rc.not_ready_players.push_back(member.username);
+            }
+        }
+        rc.all_ready = rc.total_count > 0 && rc.ready_count == rc.total_count;
+        return rc;
+    }
+
+    return toggle_ready(party_id);
 }
 
-void Client::cancel_queue(const std::string& party_id) {
-    httplib::Client client(impl_->parsed_url.host, impl_->parsed_url.port);
-    client.set_connection_timeout(5, 0);
+Party Client::enqueue(const std::string& party_id, const std::string& mode, int team_size) {
+    const json body = {{"mode", mode}, {"team_size", team_size}};
+    return parse_party(impl_->request(
+        "POST", "/v1/party/" + party_id + "/queue", body.dump(), "Failed to enter queue"));
+}
 
-    std::string path = "/v1/party/queue?party_id=" + party_id;
-    auto res = client.Delete(path, impl_->get_auth_headers());
-
-    if (!res || res->status != 200) {
-        throw std::runtime_error("Failed to leave queue");
-    }
+Party Client::cancel_queue(const std::string& party_id) {
+    return parse_party(impl_->request(
+        "POST", "/v1/party/" + party_id + "/unqueue", "{}", "Failed to leave queue"));
 }
 
 void Client::connect_ws(const std::string& party_id) {
-    // Build WebSocket URL
     std::string ws_url = impl_->base_url;
-
-    // Convert http:// to ws://
-    if (ws_url.find("http://") == 0) {
+    if (ws_url.rfind("http://", 0) == 0) {
         ws_url = "ws://" + ws_url.substr(7);
-    } else if (ws_url.find("https://") == 0) {
+    } else if (ws_url.rfind("https://", 0) == 0) {
         ws_url = "wss://" + ws_url.substr(8);
     }
-
+    while (!ws_url.empty() && ws_url.back() == '/') ws_url.pop_back();
     ws_url += "/v1/ws/party/" + party_id;
 
-    // Create and connect WebSocket
-    impl_->ws_client = std::make_unique<WebSocketWrapper>(ws_url, impl_->token);
-
-    // Set up event handler
-    impl_->ws_client->set_event_callback([this](const std::string& event, const json& data) {
+    auto client = std::make_unique<WebSocketWrapper>(ws_url, impl_->token);
+    client->set_event_callback([this](const std::string& event, const json& data) {
         impl_->handle_ws_event(event, data);
     });
 
-    impl_->ws_client->connect();
+    if (!client->connect()) {
+        throw std::runtime_error("Failed to open party WebSocket at " + ws_url);
+    }
+    impl_->ws_client = std::move(client);
 }
 
 void Client::disconnect_ws() {
@@ -425,15 +488,18 @@ bool Client::is_ws_connected() const {
 }
 
 void Client::on_match_found(MatchFoundCallback callback) {
-    impl_->match_found_callback = callback;
+    std::lock_guard<std::mutex> lock(impl_->callback_mutex);
+    impl_->match_found_callback = std::move(callback);
 }
 
 void Client::on_lobby_update(LobbyUpdateCallback callback) {
-    impl_->lobby_update_callback = callback;
+    std::lock_guard<std::mutex> lock(impl_->callback_mutex);
+    impl_->lobby_update_callback = std::move(callback);
 }
 
 void Client::on_event(EventCallback callback) {
-    impl_->event_callback = callback;
+    std::lock_guard<std::mutex> lock(impl_->callback_mutex);
+    impl_->event_callback = std::move(callback);
 }
 
 } // namespace game

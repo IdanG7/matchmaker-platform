@@ -12,7 +12,9 @@ struct AuthResult {
     std::string error;
 };
 
-// Auth operations (to be implemented in Phase 7)
+// Stateless auth calls against /v1/auth. These never throw; failures come back
+// as AuthResult{success=false, error=...}. Most callers should use game::SDK,
+// which stores the returned token for you.
 class Auth {
 public:
     static AuthResult login(const std::string& base_url,
