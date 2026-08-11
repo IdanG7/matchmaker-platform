@@ -14,13 +14,22 @@ router = APIRouter()
 
 
 @router.get("/me", response_model=ProfileResponse)
-async def get_my_profile(current_user: dict = Depends(get_current_user)):
+async def get_my_profile(
+    current_user: dict = Depends(get_current_user),
+    conn=Depends(get_db_connection),
+):
     """
     Get the authenticated user's profile.
 
     Requires valid JWT token in Authorization header.
     """
     try:
+        # Lets a reconnecting client find the party it is still a member of.
+        party_id = await conn.fetchval(
+            "SELECT party_id FROM game.party_member WHERE player_id = $1",
+            current_user["id"],
+        )
+
         return ProfileResponse(
             player_id=str(current_user["id"]),
             username=current_user["username"],
@@ -28,6 +37,7 @@ async def get_my_profile(current_user: dict = Depends(get_current_user)):
             region=current_user["region"],
             mmr=current_user["mmr"],
             created_at=current_user["created_at"],
+            party_id=str(party_id) if party_id else None,
         )
     except Exception as e:
         logger.error(f"Get profile error: {e}")
