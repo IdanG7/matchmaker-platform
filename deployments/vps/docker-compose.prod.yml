@@ -1,0 +1,77 @@
+# Production overlay for a single VPS.
+#
+#   docker compose \
+#     -f deployments/docker/docker-compose.yml \
+#     -f deployments/vps/docker-compose.prod.yml \
+#     --profile game up -d
+#
+# Differences from the development stack:
+#   - services bind to 127.0.0.1 only, so the reverse proxy is the sole way in
+#   - the observability stack is not exposed publicly
+#   - everything restarts unless explicitly stopped
+#   - the agent hands out wss:// URLs routed through the proxy
+#
+# Env lives in deployments/docker/.env, same as development. See DEPLOY.md.
+
+services:
+  postgres:
+    ports: !override
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+
+  redis:
+    ports: !override
+      - "127.0.0.1:6379:6379"
+    restart: unless-stopped
+
+  nats:
+    ports: !override
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222"
+    restart: unless-stopped
+
+  api:
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    environment:
+      # The browser client is served from the demo's own origin, so that is
+      # the only origin allowed. The app refuses to start with "*" outside
+      # development, which is deliberate.
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN must be set}
+      ENVIRONMENT: production
+    restart: unless-stopped
+    # The source bind-mount is a development convenience; in production the
+    # image's own copy is used.
+    volumes: !override []
+
+  matchmaker:
+    restart: unless-stopped
+
+  game-agent:
+    ports: !override
+      - "127.0.0.1:8090:8090"
+      - "127.0.0.1:9100-9110:9100-9110"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?PUBLIC_HOST must be set}
+      # Routed by path through the proxy, because per-match ports cannot each
+      # have their own certificate. Must match the matcher in the Caddyfile.
+      PUBLIC_URL_TEMPLATE: wss://${PUBLIC_HOST}/gs/{port}
+      MATCHMAKER_URL: http://api:8080
+    restart: unless-stopped
+
+  # Dashboards are useful but have no business being public on a demo box.
+  grafana:
+    ports: !override
+      - "127.0.0.1:3000:3000"
+    restart: unless-stopped
+
+  prometheus:
+    ports: !override
+      - "127.0.0.1:9090:9090"
+    restart: unless-stopped
+
+  jaeger:
+    ports: !override
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4318:4318"
+    restart: unless-stopped

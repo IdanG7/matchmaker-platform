@@ -74,6 +74,10 @@ class MockServerAllocator:
         )
         return endpoint
 
+    def server_url(self, match_id: str) -> str:
+        """No proxy in front of a mock server, so there is no URL to give."""
+        return ""
+
     async def deallocate_server(self, match_id: str):
         """
         Deallocate a game server.
@@ -99,6 +103,7 @@ class HttpServerAllocator:
         self.agent_url = agent_url.rstrip("/")
         self.timeout = timeout_seconds
         self._allocated_servers: Dict[str, str] = {}
+        self._server_urls: Dict[str, str] = {}
 
     async def allocate_server(
         self, match_id: str, region: str, mode: str, players: int = 0
@@ -121,9 +126,18 @@ class HttpServerAllocator:
         if not endpoint:
             raise RuntimeError(f"Agent returned no endpoint for match {match_id}")
 
+        # Browser clients cannot dial host:port over TLS, so the agent also
+        # reports the URL to use. Kept separately from the endpoint so native
+        # clients are unaffected.
+        self._server_urls[match_id] = data.get("url", "")
+
         self._allocated_servers[match_id] = endpoint
         logger.info(f"Allocated server for match {match_id}: {endpoint}")
         return endpoint
+
+    def server_url(self, match_id: str) -> str:
+        """The URL a browser client should connect to, empty if unknown."""
+        return self._server_urls.get(match_id, "")
 
     async def deallocate_server(self, match_id: str):
         if match_id not in self._allocated_servers:
@@ -131,6 +145,7 @@ class HttpServerAllocator:
 
         import httpx
 
+        self._server_urls.pop(match_id, None)
         endpoint = self._allocated_servers.pop(match_id)
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:

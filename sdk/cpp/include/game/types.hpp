@@ -56,6 +56,11 @@ struct ReadyCheck {
 struct MatchInfo {
     std::string match_id;
     std::string server_endpoint;  // "host:port"
+    // Full ws:// or wss:// URL when a proxy sits in front of the game servers.
+    // Browser clients must use this: a page on https cannot open ws://, and
+    // per-match ports are not individually reachable over TLS. Empty when the
+    // servers are dialled directly, in which case server_endpoint is enough.
+    std::string server_url;
     std::string server_token;     // HMAC session token, present it to the game server
     std::string region;
     std::string mode;

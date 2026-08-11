@@ -181,6 +181,7 @@ async def handle_match_found(message: dict):
                 {
                     "match_id": match_id,
                     "server_endpoint": server_endpoint,
+                    "server_url": allocator.server_url(match_id),
                     "server_token": session_token,
                     "region": region,
                     "mode": mode,
