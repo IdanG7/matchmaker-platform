@@ -74,6 +74,52 @@ find_package(game-sdk REQUIRED)
 target_link_libraries(your_game PRIVATE game-sdk)
 ```
 
+## Upgrading from 0.1.16
+
+0.1.17 changes the public API. Most of the party and matchmaking surface in
+0.1.16 could not have worked: it called endpoints the server does not serve and
+read JSON fields the server does not send, so those calls failed at runtime or
+returned empty values. Fixing them meant changing signatures.
+
+| 0.1.16 | 0.1.17 | Why |
+|---|---|---|
+| `SDK::authenticate(email, password)` | `SDK::login(username, password)` | The old one returned "Not implemented". Login takes a username, not an email. |
+| — | `SDK::register_user(...)` | Registering through the SDK stores the token for you. |
+| `Client::ready()` | `Client::set_ready(party_id, bool)` | The old call had no party id and hit a path that does not exist. Prefer `set_ready` over `toggle_ready`: creating a party already readies you. |
+| `Party::member_ids` | `Party::members` | The server sends member objects under `members`; the old field was always empty. |
+| `MatchInfo::token` | `MatchInfo::server_token` | The server names it `server_token`; the old field was always empty. |
+| `on_lobby_update(Party)` | `on_lobby_update(LobbyEvent)` | These events are deltas, not snapshots. The old callback handed you a `Party` with only an id filled in. |
+| `Client::join_party` returns `void` | returns `Party` | Saves an immediate follow-up fetch. |
+
+Also new: `Client::get_party`, `MatchInfo::server_url` and
+`MatchInfo::split_endpoint`, `Profile::party_id` (so a reconnecting client can
+recover a party it is still in), and `game::Session` for reporting match
+results from a game server.
+
+The SDK now builds for WebAssembly as well as native, with the same API on
+both. See [Browser builds](#browser-builds).
+
+## Browser builds
+
+The SDK compiles under Emscripten, using the browser's fetch and WebSocket
+rather than sockets. The API is identical, including its blocking calls, which
+work because the WASM build links `-sASYNCIFY`.
+
+```bash
+emcmake cmake -S sdk/cpp -B build-wasm
+cmake --build build-wasm
+```
+
+Linking the library brings `-sASYNCIFY`, `-sFETCH=1` and `-lwebsocket.js` with
+it. Two things to keep in mind:
+
+- A page served over https cannot open a `ws://` socket or call an `http://`
+  API. Serve the backend over TLS, and use `MatchInfo::server_url`, which is
+  set when the game servers sit behind a proxy.
+- Asyncify suspends the calling stack. Calling a blocking SDK method from
+  inside an `emscripten_set_main_loop` callback works, but it yields mid-frame,
+  so do it from a menu or loading state rather than every frame.
+
 ## Quick Start
 
 ### 1. Authentication
@@ -85,9 +131,11 @@ target_link_libraries(your_game PRIVATE game-sdk)
 int main() {
     const std::string API_URL = "https://your-game-backend.com";
 
-    // Register a new user
-    auto result = game::Auth::register_user(
-        API_URL,
+    game::SDK sdk(API_URL);
+
+    // Registering or logging in stores the token on the SDK, so client()
+    // is authenticated from here on. Neither throws; check success.
+    auto result = sdk.register_user(
         "player@example.com",
         "PlayerName",
         "secure_password",
@@ -95,15 +143,14 @@ int main() {
     );
 
     if (!result.success) {
-        std::cerr << "Registration failed: " << result.error << std::endl;
-        return 1;
+        // Already registered? Log in instead.
+        result = sdk.login("PlayerName", "secure_password");
     }
 
-    std::cout << "Logged in! Token: " << result.access_token << std::endl;
-
-    // Create SDK instance
-    game::SDK sdk(API_URL);
-    sdk.set_token(result.access_token);
+    if (!result.success) {
+        std::cerr << "Sign-in failed: " << result.error << std::endl;
+        return 1;
+    }
 
     return 0;
 }
@@ -132,12 +179,17 @@ std::cout << "Party ID: " << party.id << std::endl;
 
 // Share party.id with Player 2 (e.g., via friend invite)
 
-// Player 2: Join the party
-sdk2.client().join_party(party.id);
+// Player 2: Join the party. Returns the updated party.
+auto joined = sdk2.client().join_party(party.id);
+std::cout << joined.members.size() << " members" << std::endl;
 
-// Players mark themselves as ready
-sdk.client().ready();
-sdk2.client().ready();
+// Mark players ready.
+//
+// Use set_ready rather than toggle_ready: whoever creates a party is
+// already ready, so toggling right after create_party un-readies them and
+// the queue then refuses the party.
+sdk.client().set_ready(party.id, true);
+sdk2.client().set_ready(party.id, true);
 ```
 
 ### 4. Real-time Party Updates with WebSocket
@@ -150,20 +202,41 @@ int main() {
     game::SDK sdk(API_URL);
     sdk.set_token(access_token);
 
-    // Set up event callbacks
-    sdk.client().on_lobby_update([](const game::Party& party) {
-        std::cout << "Party updated!" << std::endl;
-        std::cout << "  Members: " << party.member_ids.size() << std::endl;
-        std::cout << "  Status: " << party.status << std::endl;
+    // Lobby events describe what changed rather than carrying the whole
+    // party, because that is what the server sends. Call get_party() when
+    // you need the full state.
+    sdk.client().on_lobby_update([&sdk](const game::LobbyEvent& ev) {
+        switch (ev.change) {
+        case game::LobbyChange::MemberJoined:
+            std::cout << ev.username << " joined" << std::endl;
+            break;
+        case game::LobbyChange::MemberReady:
+            std::cout << ev.username << (ev.ready ? " is ready" : " is not ready")
+                      << std::endl;
+            break;
+        case game::LobbyChange::QueueEntered:
+            std::cout << "Queued for " << ev.mode << std::endl;
+            break;
+        default:
+            break;
+        }
     });
 
     sdk.client().on_match_found([](const game::MatchInfo& match) {
         std::cout << "Match found!" << std::endl;
-        std::cout << "  Server: " << match.server_endpoint << std::endl;
         std::cout << "  Match ID: " << match.match_id << std::endl;
-        std::cout << "  Token: " << match.token << std::endl;
+        std::cout << "  Server:   " << match.server_endpoint << std::endl;
+        std::cout << "  Token:    " << match.server_token << std::endl;
 
-        // Connect to game server with match.server_endpoint and match.token
+        // server_url is set when the servers sit behind a proxy, and is
+        // required in a browser. Fall back to host:port when it is empty.
+        std::string host;
+        uint16_t port = 0;
+        if (!match.server_url.empty()) {
+            // connect to match.server_url
+        } else if (match.split_endpoint(host, port)) {
+            // connect to host:port
+        }
     });
 
     // Create party
@@ -212,14 +285,14 @@ public:
     GameClient(const std::string& api_url)
         : sdk_(api_url), in_match_(false) {}
 
-    bool login(const std::string& email, const std::string& password) {
-        auto result = game::Auth::login(api_url_, email, password);
+    bool login(const std::string& username, const std::string& password) {
+        // Note this takes a username, not an email address.
+        auto result = sdk_.login(username, password);
         if (!result.success) {
             std::cerr << "Login failed: " << result.error << std::endl;
             return false;
         }
 
-        sdk_.set_token(result.access_token);
         setupCallbacks();
         return true;
     }
@@ -233,7 +306,7 @@ public:
         sdk_.client().connect_ws(party_.id);
 
         // Mark ready
-        sdk_.client().ready();
+        sdk_.client().set_ready(party_.id, true);
 
         // Enter queue
         sdk_.client().enqueue(party_.id, "casual", 5);
@@ -248,9 +321,8 @@ public:
 
 private:
     void setupCallbacks() {
-        sdk_.client().on_lobby_update([this](const game::Party& party) {
-            std::cout << "Party update: " << party.member_ids.size()
-                      << " members" << std::endl;
+        sdk_.client().on_lobby_update([this](const game::LobbyEvent& ev) {
+            std::cout << "Party update: " << ev.username << std::endl;
         });
 
         sdk_.client().on_match_found([this](const game::MatchInfo& match) {
@@ -278,7 +350,7 @@ private:
 int main() {
     GameClient client("https://your-backend.com");
 
-    if (!client.login("player@example.com", "password")) {
+    if (!client.login("PlayerName", "password")) {
         return 1;
     }
 
@@ -313,9 +385,12 @@ if (!result.success) {
 
 ## Thread Safety
 
-- All SDK methods are thread-safe
-- WebSocket callbacks are invoked on a background thread
-- Use mutexes if modifying shared state in callbacks:
+- Callback registration is mutex-guarded, and each request uses its own
+  connection
+- Natively, WebSocket callbacks are invoked on a background thread. Under
+  Emscripten there are no threads and they run on the browser's event loop
+- Either way the callback does not run on your game loop, so marshal work
+  across rather than touching game state directly:
 
 ```cpp
 std::mutex match_mutex;
@@ -333,13 +408,15 @@ See the header files for complete API documentation:
 - `include/game/sdk.hpp` - Main SDK class
 - `include/game/auth.hpp` - Authentication functions
 - `include/game/client.hpp` - Client operations
+- `include/game/session.hpp` - Match result reporting, for game servers
 - `include/game/types.hpp` - Data types and structures
 
 ## Examples
 
 Full working examples are in `examples/`:
-- `simple_client.cpp` - Basic SDK usage
-- `party_test.cpp` - Two-player party test with WebSocket events
+- `simple_client.cpp` - the whole flow: sign in, party, queue, match found
+- `party_test.cpp` - two-player party test that exits non-zero on failure,
+  which is what catches drift between the SDK and the server
 
 Build and run:
 ```bash
