@@ -28,7 +28,7 @@ PARAM = "{}"
 # A C++ path argument: string literals and identifiers joined by '+'. Anchoring
 # on this rather than a lazy .+? keeps the match from running past the path and
 # into the request body argument.
-_TERM = r'(?:"[^"]*"|[A-Za-z_]\w*)'
+_TERM = r'(?:"[^"]*"|[A-Za-z_][\w.]*)'
 PATH_EXPR = rf"{_TERM}(?:\s*\+\s*{_TERM})*"
 
 
@@ -80,6 +80,17 @@ def _sdk_calls() -> list[tuple[str, str, str]]:
     for match in re.finditer(r'\.(Get|Post|Patch|Delete)\(\s*"([^"]+)"', auth_cpp):
         calls.append((match.group(1).upper(), match.group(2), "auth.cpp"))
 
+    session_cpp = (SDK_SRC / "session.cpp").read_text(encoding="utf-8")
+    # post_json(base_url, "/v1/session/" + match_id + "/result", ...)
+    for match in re.finditer(
+        rf"post_json\(\s*\w+\s*,\s*({PATH_EXPR})\s*,", session_cpp
+    ):
+        path = _cpp_expr_to_path(match.group(1))
+        assert (
+            path is not None
+        ), f"could not parse SDK path expression: {match.group(1)!r}"
+        calls.append(("POST", path, "session.cpp"))
+
     return calls
 
 
@@ -120,6 +131,7 @@ def test_sdk_source_was_found():
     """Guard against the extractors silently matching nothing."""
     assert (SDK_SRC / "client.cpp").exists()
     assert (SDK_SRC / "auth.cpp").exists()
+    assert (SDK_SRC / "session.cpp").exists()
     assert len(_sdk_calls()) >= 10, "expected the SDK to make at least 10 HTTP calls"
 
 
@@ -169,7 +181,7 @@ def test_every_v1_literal_in_sdk_is_covered():
     covered = {p for _, p, _ in _sdk_calls()} | set(_sdk_websocket_paths())
     covered_prefixes = {p.split("{")[0].rstrip("/") for p in covered}
 
-    for cpp in ("client.cpp", "auth.cpp"):
+    for cpp in ("client.cpp", "auth.cpp", "session.cpp"):
         text = (SDK_SRC / cpp).read_text(encoding="utf-8")
         for literal in re.findall(r'"(/v1/[^"]*)"', text):
             prefix = literal.split("{")[0].rstrip("/")

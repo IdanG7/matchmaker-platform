@@ -1,7 +1,0 @@
-# Example applications
-
-add_executable(basic_example basic_example.cpp)
-target_link_libraries(basic_example PRIVATE matchmaker_client)
-
-add_executable(full_flow_example full_flow_example.cpp)
-target_link_libraries(full_flow_example PRIVATE matchmaker_client)
