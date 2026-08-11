@@ -8,7 +8,6 @@ Note: These tests require the full backend stack to be running.
 import pytest
 import httpx
 
-
 BASE_URL = "http://localhost:8080"
 
 

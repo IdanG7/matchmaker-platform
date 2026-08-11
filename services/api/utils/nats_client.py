@@ -65,6 +65,28 @@ class SimpleNatsClient:
             logger.error(f"Failed to publish to {subject}: {e}")
             raise
 
+    async def subscribe(self, subject: str, handler):
+        """
+        Subscribe to a NATS subject.
+
+        Args:
+            subject: NATS subject to subscribe to
+            handler: async callable invoked with each nats Msg
+
+        Returns:
+            The subscription, so callers can unsubscribe.
+        """
+        if not self._client or not self._client.is_connected:
+            await self.connect()
+
+        try:
+            subscription = await self._client.subscribe(subject, cb=handler)
+            logger.info(f"Subscribed to {subject}")
+            return subscription
+        except Exception as e:
+            logger.error(f"Failed to subscribe to {subject}: {e}")
+            raise
+
     def is_connected(self) -> bool:
         """Check if NATS is connected."""
         return self._client is not None and self._client.is_connected

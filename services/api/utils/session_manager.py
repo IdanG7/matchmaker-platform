@@ -5,7 +5,8 @@ Session Manager - Game session allocation and lifecycle management.
 import hmac
 import hashlib
 import logging
-from typing import Optional, List, Dict
+import os
+from typing import Optional, List, Dict, Union
 from models.schemas import SessionStatus
 
 logger = logging.getLogger(__name__)
@@ -37,8 +38,9 @@ def get_session_secret() -> bytes:
 
 class MockServerAllocator:
     """
-    Mock server allocator that returns static endpoints.
-    In production, this would integrate with Agones/GameLift/etc.
+    Returns synthetic endpoints. Nothing listens on them, so this is only
+    suitable for tests that never open a socket. Real deployments configure
+    GAME_SERVER_AGENT_URL and get HttpServerAllocator instead.
     """
 
     def __init__(self, base_host: str = "game.example.com", base_port: int = 7777):
@@ -46,7 +48,9 @@ class MockServerAllocator:
         self.base_port = base_port
         self._allocated_servers: Dict[str, str] = {}
 
-    def allocate_server(self, match_id: str, region: str, mode: str) -> str:
+    async def allocate_server(
+        self, match_id: str, region: str, mode: str, players: int = 0
+    ) -> str:
         """
         Allocate a game server for the match.
 
@@ -54,21 +58,23 @@ class MockServerAllocator:
             match_id: Match UUID
             region: Server region
             mode: Game mode
+            players: Expected player count
 
         Returns:
             Server endpoint (host:port)
         """
-        # Mock allocation - in production would call cloud provider API
-        # For now, return a static endpoint with incremented port
         port = self.base_port + len(self._allocated_servers)
         endpoint = f"{region}.{self.base_host}:{port}"
 
         self._allocated_servers[match_id] = endpoint
 
-        logger.info(f"Allocated server for match {match_id}: {endpoint}")
+        logger.warning(
+            f"Allocated MOCK server for match {match_id}: {endpoint} "
+            f"(nothing is listening there; set GAME_SERVER_AGENT_URL for real servers)"
+        )
         return endpoint
 
-    def deallocate_server(self, match_id: str):
+    async def deallocate_server(self, match_id: str):
         """
         Deallocate a game server.
 
@@ -80,18 +86,98 @@ class MockServerAllocator:
             logger.info(f"Deallocated server for match {match_id}: {endpoint}")
 
 
+class HttpServerAllocator:
+    """
+    Allocates real game servers through a game-server agent.
+
+    The agent owns the game binary and the port range; this service only asks
+    for a server and is told where to send players. Keeping the game out of the
+    platform is what lets the same matchmaker serve more than one title.
+    """
+
+    def __init__(self, agent_url: str, timeout_seconds: float = 10.0):
+        self.agent_url = agent_url.rstrip("/")
+        self.timeout = timeout_seconds
+        self._allocated_servers: Dict[str, str] = {}
+
+    async def allocate_server(
+        self, match_id: str, region: str, mode: str, players: int = 0
+    ) -> str:
+        import httpx
+
+        payload = {
+            "match_id": match_id,
+            "region": region,
+            "mode": mode,
+            "players": players,
+        }
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(f"{self.agent_url}/allocate", json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        endpoint = data.get("endpoint")
+        if not endpoint:
+            raise RuntimeError(f"Agent returned no endpoint for match {match_id}")
+
+        self._allocated_servers[match_id] = endpoint
+        logger.info(f"Allocated server for match {match_id}: {endpoint}")
+        return endpoint
+
+    async def deallocate_server(self, match_id: str):
+        if match_id not in self._allocated_servers:
+            return
+
+        import httpx
+
+        endpoint = self._allocated_servers.pop(match_id)
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                await client.post(
+                    f"{self.agent_url}/release", json={"match_id": match_id}
+                )
+            logger.info(f"Deallocated server for match {match_id}: {endpoint}")
+        except Exception as e:
+            # The agent reaps servers that finish on their own, so a failed
+            # release is not fatal.
+            logger.warning(f"Failed to release server for match {match_id}: {e}")
+
+
 # Global server allocator instance
-_server_allocator: Optional[MockServerAllocator] = None
+ServerAllocator = Union[MockServerAllocator, "HttpServerAllocator"]
+
+_server_allocator: Optional[ServerAllocator] = None
 
 
-def init_server_allocator(base_host: str = "game.example.com", base_port: int = 7777):
-    """Initialize the global server allocator."""
+def init_server_allocator(
+    base_host: str = "game.example.com",
+    base_port: int = 7777,
+    agent_url: Optional[str] = None,
+):
+    """
+    Initialize the global server allocator.
+
+    With an agent URL configured, matches get real game servers. Without one it
+    falls back to the mock, which hands out endpoints nothing is listening on.
+    """
     global _server_allocator
-    _server_allocator = MockServerAllocator(base_host, base_port)
-    logger.info("Server allocator initialized")
+
+    if agent_url is None:
+        agent_url = os.getenv("GAME_SERVER_AGENT_URL", "").strip()
+
+    if agent_url:
+        _server_allocator = HttpServerAllocator(agent_url)
+        logger.info(f"Server allocator using game server agent at {agent_url}")
+    else:
+        _server_allocator = MockServerAllocator(base_host, base_port)
+        logger.warning(
+            "GAME_SERVER_AGENT_URL is not set - allocating mock servers. "
+            "Clients will be told to connect to an address that does not exist."
+        )
 
 
-def get_server_allocator() -> MockServerAllocator:
+def get_server_allocator() -> ServerAllocator:
     """Get the global server allocator."""
     if _server_allocator is None:
         raise RuntimeError(

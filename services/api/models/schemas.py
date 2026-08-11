@@ -6,7 +6,6 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-
 # ============================================================================
 # Auth Schemas
 # ============================================================================

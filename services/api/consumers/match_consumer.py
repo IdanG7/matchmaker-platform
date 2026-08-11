@@ -135,7 +135,9 @@ async def handle_match_found(message: dict):
 
                 # 3. Allocate game server
                 allocator = get_server_allocator()
-                server_endpoint = allocator.allocate_server(match_id, region, mode)
+                server_endpoint = await allocator.allocate_server(
+                    match_id, region, mode, players=len(all_player_ids)
+                )
 
                 # 4. Generate session token
                 session_token = generate_session_token(match_id, all_player_ids)

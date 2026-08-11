@@ -5,7 +5,9 @@ services:
     ports:
       - "4222:4222"
       - "8222:8222"
-    command: ["--jetstream"]
+    # -m 8222 enables the HTTP monitoring endpoint the healthcheck probes.
+    # Without it nothing listens on 8222 and the check can never pass.
+    command: ["--jetstream", "-m", "8222"]
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8222/healthz"]
       interval: 5s
@@ -81,6 +83,8 @@ services:
       REDIS_URL: redis://redis:6379
       NATS_URL: nats://nats:4222
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set}
+      # Without this the API hands out mock endpoints nothing listens on.
+      GAME_SERVER_AGENT_URL: http://game-agent:8090
     ports:
       - "8080:8080"
     depends_on:
@@ -91,17 +95,45 @@ services:
     volumes:
       - ../../services/api:/app
 
-  # matchmaker:
-  #   build:
-  #     context: ../../services/matchmaker
-  #     dockerfile: Dockerfile
-  #   env_file:
-  #     - ../../.env
-  #   depends_on:
-  #     nats:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
+  # Owns the game server binary and its port range. Lives in the game
+  # repository, so its build context points outside this one; override
+  # GAME_REPO_PATH if your checkout is somewhere else.
+  #
+  # Behind a profile because that checkout is not always present: the platform
+  # has to come up on its own for CI and for anyone working on it without the
+  # game. Start it with `docker compose --profile game up` (or `make up-game`),
+  # otherwise the API allocates mock servers and says so in the logs.
+  game-agent:
+    profiles: ["game"]
+    build:
+      context: ${GAME_REPO_PATH:-../../../../MP-SDK-Game}
+      dockerfile: agent/Dockerfile
+    environment:
+      # What clients are told to dial. Must be reachable from the player's
+      # machine, so it cannot be the container name.
+      PUBLIC_HOST: ${GAME_PUBLIC_HOST:-localhost}
+      MATCHMAKER_URL: http://api:8080
+      AGENT_PORT_RANGE_START: 9100
+      AGENT_PORT_RANGE_END: 9110
+    ports:
+      - "8090:8090"
+      - "9100-9110:9100-9110"
+    restart: unless-stopped
+
+  matchmaker:
+    build:
+      context: ../../services/matchmaker
+      dockerfile: Dockerfile
+    environment:
+      NATS_URL: nats://nats:4222
+      MM_MMR_BAND_INITIAL: ${MM_MMR_BAND_INITIAL:-100}
+      MM_MMR_BAND_MAX: ${MM_MMR_BAND_MAX:-500}
+      MM_MMR_BAND_GROWTH_PER_SECOND: ${MM_MMR_BAND_GROWTH_PER_SECOND:-10}
+      MM_MAX_WAIT_TIME_SECONDS: ${MM_MAX_WAIT_TIME_SECONDS:-120}
+    depends_on:
+      nats:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:

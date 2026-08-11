@@ -1,4 +1,5 @@
 #include "game/auth.hpp"
+#include "url.hpp"
 #include <httplib.h>
 #include <nlohmann/json.hpp>
 
@@ -6,41 +7,7 @@ using json = nlohmann::json;
 
 namespace game {
 
-namespace {
-    // Helper to parse URL into host and port
-    struct ParsedURL {
-        std::string scheme;
-        std::string host;
-        int port;
-    };
-
-    ParsedURL parse_url(const std::string& url) {
-        ParsedURL result;
-
-        // Simple URL parsing (assumes http://host:port format)
-        size_t scheme_end = url.find("://");
-        if (scheme_end != std::string::npos) {
-            result.scheme = url.substr(0, scheme_end);
-            size_t host_start = scheme_end + 3;
-            size_t port_start = url.find(":", host_start);
-
-            if (port_start != std::string::npos) {
-                result.host = url.substr(host_start, port_start - host_start);
-                result.port = std::stoi(url.substr(port_start + 1));
-            } else {
-                result.host = url.substr(host_start);
-                result.port = (result.scheme == "https") ? 443 : 80;
-            }
-        } else {
-            // No scheme, assume http://localhost:8080
-            result.scheme = "http";
-            result.host = "localhost";
-            result.port = 8080;
-        }
-
-        return result;
-    }
-}
+using detail::parse_url;
 
 AuthResult Auth::login(const std::string& base_url,
                        const std::string& username,

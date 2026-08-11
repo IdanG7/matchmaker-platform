@@ -61,11 +61,23 @@ async def lifespan(app: FastAPI):
         nats_events.init_nats(nats_client)
         logger.info("NATS connection initialized")
 
-        # Start match consumer for session allocation
-        await start_match_consumer(nats_client)
-        logger.info("Match consumer started")
     except Exception as e:
         logger.warning(f"Failed to connect to NATS: {e}. Queue events disabled.")
+        nats_client = None
+
+    if nats_client is not None:
+        # Without this consumer the API never learns that a match was formed,
+        # so no session is allocated and no client is ever told to connect.
+        # It is logged loudly because matchmaking is silently dead without it.
+        try:
+            await start_match_consumer(nats_client)
+            logger.info("Match consumer started")
+        except Exception as e:
+            logger.error(
+                f"Failed to start the match consumer: {e}. "
+                f"Matches will be formed but never delivered to clients.",
+                exc_info=True,
+            )
 
     # Startup - Initialize session manager
     try:
@@ -106,9 +118,18 @@ app = FastAPI(
 )
 
 # CORS middleware — origins from settings allowlist; "*" only allowed in dev
-_cors_origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
-if _cors_origins == ["*"] and settings.environment.lower() not in ("development", "dev", "test", "testing"):
-    raise RuntimeError("CORS_ALLOWED_ORIGINS must be an explicit allowlist outside of development")
+_cors_origins = [
+    o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()
+]
+if _cors_origins == ["*"] and settings.environment.lower() not in (
+    "development",
+    "dev",
+    "test",
+    "testing",
+):
+    raise RuntimeError(
+        "CORS_ALLOWED_ORIGINS must be an explicit allowlist outside of development"
+    )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,

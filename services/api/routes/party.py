@@ -549,6 +549,19 @@ async def enter_queue(
             avg_mmr,
         )
 
+        # The matchmaker builds teams out of player ids, so it needs the
+        # roster: the party id alone is not enough to fill match.found.
+        member_ids = [
+            row["player_id"]
+            for row in await conn.fetch(
+                """
+                SELECT player_id FROM game.party_member
+                WHERE party_id = $1 ORDER BY joined_at
+                """,
+                party_id,
+            )
+        ]
+
         # Publish queue event to NATS for matchmaker
         try:
             await publish_queue_enter(
@@ -558,6 +571,7 @@ async def enter_queue(
                 avg_mmr=avg_mmr,
                 region=party["region"],
                 party_size=party["size"],
+                player_ids=member_ids,
             )
         except Exception as e:
             logger.warning(f"Failed to publish queue enter event: {e}")
