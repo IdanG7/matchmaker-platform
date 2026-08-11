@@ -66,15 +66,15 @@ Before you begin, ensure you have the following installed:
 git clone https://github.com/IdanG7/matchmaker-platform.git
 cd matchmaker-platform
 
-# Copy environment configuration
-cp .env.example .env
+# Copy environment configuration. Compose reads .env from the directory
+# holding the compose file, so it belongs here rather than at the root.
+cp deployments/docker/.env.example deployments/docker/.env
 
-# Start all services
+# Set JWT_SECRET_KEY to something random
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+
+# Start all services and apply migrations
 make up
-
-# Initialize database (first time only)
-docker compose -f deployments/docker/docker-compose.yml exec postgres \
-  psql -U postgres -d game -f /docker-entrypoint-initdb.d/init.sql
 
 # View logs
 make logs
@@ -86,7 +86,30 @@ make test
 make down
 ```
 
-The API will be available at `http://localhost:8080`. Visit `http://localhost:8080/docs` for interactive API documentation.
+`make up` waits for Postgres and applies `db/migrations/init.sql` itself, so
+there is no separate init step. The API is then at `http://localhost:8080`,
+with interactive docs at `http://localhost:8080/docs`.
+
+### Playing a real match
+
+Matchmaking needs the game server agent, which lives in the
+[game repository](https://github.com/IdanG7/multiplayer-demo) and owns the game
+binary. Point `GAME_REPO_PATH` in `deployments/docker/.env` at your checkout of
+it; `make up` builds and runs it alongside the platform.
+
+Without it the API falls back to a mock allocator that hands out endpoints
+nothing is listening on, and logs a warning saying so.
+
+To watch the whole flow, build the SDK example and run two of them:
+
+```bash
+cmake -S sdk/cpp -B build/sdk && cmake --build build/sdk
+./build/sdk/examples/example_client --username alice --team-size 1
+./build/sdk/examples/example_client --username bob   --team-size 1
+```
+
+Each registers, forms a party, readies up, queues, and prints the game server
+it was matched onto.
 
 ## Architecture
 
