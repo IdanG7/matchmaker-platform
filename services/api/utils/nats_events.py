@@ -38,6 +38,7 @@ async def publish_queue_enter(
     avg_mmr: int,
     region: str,
     party_size: int,
+    player_ids: list[str] | None = None,
 ):
     """
     Publish party enter queue event to matchmaker.
@@ -49,6 +50,8 @@ async def publish_queue_enter(
         avg_mmr: Average MMR of party
         region: Party region
         party_size: Number of players in party
+        player_ids: Party roster; the matchmaker assigns these to teams and
+            echoes them back in match.found
     """
     try:
         nats = get_nats()
@@ -60,6 +63,7 @@ async def publish_queue_enter(
             "avg_mmr": avg_mmr,
             "region": region,
             "party_size": party_size,
+            "player_ids": player_ids or [],
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 

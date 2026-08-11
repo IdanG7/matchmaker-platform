@@ -370,7 +370,7 @@ async def submit_match_result(match_id: str, request: MatchResultRequest):
 
             # Deallocate server
             allocator = get_server_allocator()
-            allocator.deallocate_server(match_id)
+            await allocator.deallocate_server(match_id)
 
             logger.info(
                 f"Match {match_id} ended, winner: team {request.winner_team}, "

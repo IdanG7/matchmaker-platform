@@ -61,11 +61,23 @@ async def lifespan(app: FastAPI):
         nats_events.init_nats(nats_client)
         logger.info("NATS connection initialized")
 
-        # Start match consumer for session allocation
-        await start_match_consumer(nats_client)
-        logger.info("Match consumer started")
     except Exception as e:
         logger.warning(f"Failed to connect to NATS: {e}. Queue events disabled.")
+        nats_client = None
+
+    if nats_client is not None:
+        # Without this consumer the API never learns that a match was formed,
+        # so no session is allocated and no client is ever told to connect.
+        # It is logged loudly because matchmaking is silently dead without it.
+        try:
+            await start_match_consumer(nats_client)
+            logger.info("Match consumer started")
+        except Exception as e:
+            logger.error(
+                f"Failed to start the match consumer: {e}. "
+                f"Matches will be formed but never delivered to clients.",
+                exc_info=True,
+            )
 
     # Startup - Initialize session manager
     try:
