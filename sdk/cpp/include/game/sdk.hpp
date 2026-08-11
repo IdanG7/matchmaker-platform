@@ -3,6 +3,7 @@
 #include "types.hpp"
 #include "client.hpp"
 #include "auth.hpp"
+#include "session.hpp"
 
 namespace game {
 

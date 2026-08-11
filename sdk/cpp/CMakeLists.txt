@@ -65,12 +65,14 @@ set(SOURCES
     src/sdk.cpp
     src/client.cpp
     src/auth.cpp
+    src/session.cpp
 )
 
 set(HEADERS
     include/game/sdk.hpp
     include/game/client.hpp
     include/game/auth.hpp
+    include/game/session.hpp
     include/game/types.hpp
 )
 
