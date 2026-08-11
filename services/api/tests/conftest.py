@@ -4,13 +4,11 @@ Pytest configuration for API tests.
 This file sets up the test environment, including database initialization.
 """
 
-import asyncio
 import os
 import uuid
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
-
 
 # Set test environment variables before importing the app
 os.environ.setdefault(
@@ -22,33 +20,29 @@ os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def initialize_database():
     """
-    Initialize database connection pool for all tests.
+    Initialize the database connection pool for a test.
 
-    This fixture runs once per test session and sets up the database pool.
+    This is deliberately function scoped. asyncpg binds its connections to the
+    event loop that created them, and pytest-asyncio gives each test its own
+    loop, so a session-scoped pool ends up being used from a loop it does not
+    belong to and every test errors with "attached to a different loop".
     """
     # Import here to ensure environment variables are set first
     from utils.database import db
 
-    # Initialize database connection pool
     try:
         await db.connect()
-        yield
     except Exception as e:
         print(f"Warning: Could not connect to database: {e}")
         yield
+        return
+
+    try:
+        yield
     finally:
-        # Clean up database connection pool
         try:
             await db.disconnect()
         except Exception:

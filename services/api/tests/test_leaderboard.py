@@ -18,11 +18,11 @@ class TestMatchHistory:
 
         pool = await get_db_pool()
         async with pool.acquire() as conn:
-            # Get test user ID
-            user = await conn.fetchrow(
-                "SELECT id FROM game.player WHERE username LIKE 'testuser_%' LIMIT 1"
-            )
-            player_id = str(user["id"])
+            # Seed history for the account these tests authenticate as. Any
+            # row matching 'testuser_%' is usually a leftover from an earlier
+            # test, so the history would belong to someone else and the
+            # endpoint would correctly return nothing.
+            player_id = tokens["player_id"]
 
             # Create match history entries
             match_ids = []
@@ -63,7 +63,7 @@ class TestMatchHistory:
         self, async_client, tokens, setup_match_history
     ):
         """Test getting own match history."""
-        await setup_match_history
+        # fixture value; nothing to await
 
         response = await async_client.get(
             "/v1/matches/history",
@@ -90,7 +90,7 @@ class TestMatchHistory:
         self, async_client, tokens, setup_match_history
     ):
         """Test match history pagination."""
-        await setup_match_history
+        # fixture value; nothing to await
 
         response = await async_client.get(
             "/v1/matches/history?page=1&page_size=2",
@@ -107,7 +107,7 @@ class TestMatchHistory:
         self, async_client, tokens, setup_match_history
     ):
         """Test match history filtering by mode."""
-        await setup_match_history
+        # fixture value; nothing to await
 
         response = await async_client.get(
             "/v1/matches/history?mode=ranked",
@@ -172,7 +172,7 @@ class TestLeaderboard:
 
     async def test_get_leaderboard(self, async_client, setup_leaderboard):
         """Test getting leaderboard."""
-        data = await setup_leaderboard
+        data = setup_leaderboard
 
         response = await async_client.get(f"/v1/leaderboard/{data['season']}")
 
@@ -199,7 +199,7 @@ class TestLeaderboard:
 
     async def test_get_leaderboard_pagination(self, async_client, setup_leaderboard):
         """Test leaderboard pagination."""
-        data = await setup_leaderboard
+        data = setup_leaderboard
 
         response = await async_client.get(
             f"/v1/leaderboard/{data['season']}?page=1&page_size=5"
@@ -213,7 +213,7 @@ class TestLeaderboard:
 
     async def test_get_current_leaderboard(self, async_client, setup_leaderboard):
         """Test getting current season leaderboard."""
-        await setup_leaderboard
+        # fixture value; nothing to await
 
         response = await async_client.get("/v1/leaderboard")
 

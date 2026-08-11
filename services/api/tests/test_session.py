@@ -25,11 +25,10 @@ class TestSessionEndpoints:
 
         pool = await get_db_pool()
         async with pool.acquire() as conn:
-            # Get test user ID
-            user = await conn.fetchrow(
-                "SELECT id FROM game.player WHERE username LIKE 'testuser_%' LIMIT 1"
-            )
-            player_id = str(user["id"])
+            # Use the account these tests authenticate as. Picking any row
+            # matching 'testuser_%' returns a leftover from an earlier test,
+            # so the caller is not in the match and every request gets a 403.
+            player_id = tokens["player_id"]
 
             # Create match
             match_id = str(uuid.uuid4())
@@ -66,7 +65,7 @@ class TestSessionEndpoints:
 
     async def test_get_session_success(self, async_client, tokens, setup_match):
         """Test getting session details as participant."""
-        match_data = await setup_match
+        match_data = setup_match
 
         response = await async_client.get(
             f"/v1/session/{match_data['match_id']}",
@@ -86,7 +85,7 @@ class TestSessionEndpoints:
         self, async_client, second_user_tokens, setup_match
     ):
         """Test getting session as non-participant returns 403."""
-        match_data = await setup_match
+        match_data = setup_match
 
         response = await async_client.get(
             f"/v1/session/{match_data['match_id']}",
@@ -109,7 +108,7 @@ class TestSessionEndpoints:
 
     async def test_session_heartbeat(self, async_client, setup_match):
         """Test game server heartbeat."""
-        match_data = await setup_match
+        match_data = setup_match
 
         response = await async_client.post(
             f"/v1/session/{match_data['match_id']}/heartbeat",
@@ -155,7 +154,7 @@ class TestSessionEndpoints:
 
     async def test_submit_match_result(self, async_client, setup_match):
         """Test submitting match result."""
-        match_data = await setup_match
+        match_data = setup_match
 
         response = await async_client.post(
             f"/v1/session/{match_data['match_id']}/result",
@@ -183,7 +182,8 @@ class TestSessionEndpoints:
 
             assert match["status"] == SessionStatus.ENDED
             assert match["ended_at"] is not None
-            result = json.loads(match["result"]) if match["result"] else {}
+            # jsonb columns are decoded by the pool's type codec.
+            result = match["result"] or {}
             assert result.get("winner_team") == 0
 
 
@@ -258,20 +258,22 @@ class TestSessionManager:
                 SessionStatus.ENDED, SessionStatus.ACTIVE
             )
 
-    def test_server_allocator(self):
+    async def test_server_allocator(self):
         """Test mock server allocator."""
         from utils.session_manager import MockServerAllocator
 
         allocator = MockServerAllocator()
 
         match_id = str(uuid.uuid4())
-        endpoint = allocator.allocate_server(match_id, "us-west", "ranked")
+        # Allocation is async because the real allocator asks a game server
+        # agent over HTTP; the mock keeps the same signature.
+        endpoint = await allocator.allocate_server(match_id, "us-west", "ranked")
 
         assert endpoint is not None
         assert "us-west" in endpoint
         assert ":" in endpoint
 
-        allocator.deallocate_server(match_id)
+        await allocator.deallocate_server(match_id)
 
 
 class TestMatchConsumer:
@@ -305,8 +307,9 @@ class TestMatchConsumer:
                 )
                 player_ids.append(player_id)
 
-        # Create match.found message
-        match_id = f"match_{uuid.uuid4().hex[:16]}"
+        # game.match.id is a UUID column, and the matchmaker publishes real
+        # UUIDs, so a "match_..." prefix here fails to insert.
+        match_id = str(uuid.uuid4())
         teams = [player_ids[:5], player_ids[5:]]
         message = {
             "match_id": match_id,

@@ -88,7 +88,7 @@ def _sdk_websocket_paths() -> list[str]:
     client_cpp = (SDK_SRC / "client.cpp").read_text(encoding="utf-8")
     paths = []
     # ws_url += "/v1/ws/party/" + party_id;
-    for match in re.finditer(rf'ws_url\s*\+=\s*({PATH_EXPR})\s*;', client_cpp):
+    for match in re.finditer(rf"ws_url\s*\+=\s*({PATH_EXPR})\s*;", client_cpp):
         path = _cpp_expr_to_path(match.group(1))
         if path:
             paths.append(path)
@@ -138,9 +138,15 @@ def test_sdk_http_call_exists_in_api(method, path, source, app_routes):
             f"{source}: SDK calls {method} {path}, but the API serves only "
             f"{', '.join(same_path)} on that path"
         )
+
+    # Otherwise list the paths sharing its prefix, which is usually enough to
+    # spot the intended one.
+    segments = shape.split("/")
+    prefix = "/".join(segments[:3]) if len(segments) > 2 else "/v1"
+    nearby = sorted({p for _, p in http_routes if p.startswith(prefix)})
     pytest.fail(
         f"{source}: SDK calls {method} {path}, which the API does not serve. "
-        f"Closest paths: {sorted({p for _, p in http_routes if p.startswith('/v1/' + shape.split('/')[2] if len(shape.split('/')) > 2 else '/v1/')})}"
+        f"Paths under {prefix}: {nearby}"
     )
 
 

@@ -62,7 +62,7 @@ class TestMatchFlowIntegration:
         init_session_secret("test_secret_integration")
         init_server_allocator()
 
-        player_ids = await test_players
+        player_ids = test_players
         match_id = str(uuid.uuid4())
         teams = [player_ids[:5], player_ids[5:]]
         party_ids = [str(uuid.uuid4()), str(uuid.uuid4())]
