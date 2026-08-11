@@ -179,3 +179,108 @@ def test_every_v1_literal_in_sdk_is_covered():
                 f"{cpp} contains the path literal {literal!r} that no extracted "
                 f"call accounts for. Add it to the contract check."
             )
+
+
+# ---------------------------------------------------------------------------
+# Response field contract
+#
+# Three of the SDK's bugs were field-name mismatches rather than wrong routes:
+# it read "member_ids" where the API sends "members", "token" where the API
+# sends "server_token", and "id" where the profile sends "player_id". Each one
+# compiled, parsed without error, and silently produced an empty value.
+#
+# These checks compare the JSON keys each parse_* function reads against the
+# fields the corresponding response model declares.
+# ---------------------------------------------------------------------------
+
+# Keys the SDK may read that are not model fields, with the reason.
+ALLOWED_EXTRA_KEYS = {
+    # Accepted as a fallback so a rename cannot silently empty the field again.
+    "parse_profile": {"id"},
+}
+
+
+def _parse_function_body(name: str) -> str:
+    """Return the body of a parse_* function from client.cpp."""
+    source = (SDK_SRC / "client.cpp").read_text(encoding="utf-8")
+    start = re.search(
+        rf"^\w[\w:<>]*\s+{re.escape(name)}\(const json& j\)\s*\{{", source, re.MULTILINE
+    )
+    assert start, f"could not find {name} in client.cpp"
+
+    # Walk braces from the opening one to find the matching close.
+    i = source.index("{", start.start())
+    depth = 0
+    for end in range(i, len(source)):
+        if source[end] == "{":
+            depth += 1
+        elif source[end] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[i : end + 1]
+    raise AssertionError(f"unbalanced braces in {name}")
+
+
+def _keys_read(body: str, var: str) -> set[str]:
+    """JSON keys read from `var` within a function body."""
+    keys = set()
+    keys |= set(re.findall(rf'get_(?:string|int|bool)\(\s*{var}\s*,\s*"([^"]+)"', body))
+    keys |= set(re.findall(rf'{var}\.contains\(\s*"([^"]+)"\s*\)', body))
+    keys |= set(re.findall(rf'{var}\[\s*"([^"]+)"\s*\]', body))
+    return keys
+
+
+@pytest.fixture(scope="module")
+def schemas():
+    sys.path.insert(0, str(API_DIR))
+    try:
+        import models.schemas as s
+    finally:
+        sys.path.pop(0)
+    return s
+
+
+@pytest.mark.parametrize(
+    "fn_name,var,model_name",
+    [
+        ("parse_profile", "j", "ProfileResponse"),
+        ("parse_party", "j", "PartyResponse"),
+        ("parse_party", "m", "PartyMemberResponse"),
+        ("parse_ready_check", "j", "ReadyCheckResponse"),
+    ],
+)
+def test_sdk_reads_fields_the_model_declares(fn_name, var, model_name, schemas):
+    model = getattr(schemas, model_name)
+    declared = set(model.model_fields)
+
+    read = _keys_read(_parse_function_body(fn_name), var)
+    assert read, f"{fn_name} appears to read no keys from '{var}' - check the extractor"
+
+    allowed = declared | ALLOWED_EXTRA_KEYS.get(fn_name, set())
+    unknown = read - allowed
+    assert not unknown, (
+        f"{fn_name} reads {sorted(unknown)} from '{var}', which {model_name} does not "
+        f"declare. Its fields are {sorted(declared)}."
+    )
+
+
+def test_sdk_reads_the_fields_match_found_actually_sends():
+    """
+    match.found is a plain dict rather than a response model, so its keys come
+    from the broadcast call in the consumer.
+    """
+    consumer = (API_DIR / "consumers" / "match_consumer.py").read_text(encoding="utf-8")
+
+    call = re.search(
+        r"broadcast_match_found_to_parties\(.*?\{(.*?)\},\s*\)", consumer, re.DOTALL
+    )
+    assert call, "could not find the match.found broadcast payload"
+    sent = set(re.findall(r'"(\w+)":', call.group(1)))
+    assert sent, "extracted no keys from the match.found payload"
+
+    read = _keys_read(_parse_function_body("parse_match_info"), "j")
+    unknown = read - sent
+    assert not unknown, (
+        f"parse_match_info reads {sorted(unknown)}, which match.found does not send. "
+        f"It sends {sorted(sent)}."
+    )
