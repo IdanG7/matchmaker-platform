@@ -15,6 +15,10 @@ struct Profile {
     std::string email;
     std::string region;
     int mmr = 0;
+    // The party this player is already in, empty if none. A client that
+    // reconnects needs this to rejoin or leave: create_party is refused while
+    // it holds one, and there is no other way to learn the id.
+    std::string party_id;
 };
 
 // A single member of a party. Mirrors PartyMemberResponse in the API.

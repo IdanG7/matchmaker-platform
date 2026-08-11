@@ -78,6 +78,10 @@ class ProfileResponse(BaseModel):
     region: str
     mmr: int
     created_at: datetime
+    # The party the player is currently in, if any. A client that reconnects
+    # has no other way to discover this, and creating a party fails while it
+    # holds one, so without this a dropped client is stuck permanently.
+    party_id: Optional[str] = None
 
     class Config:
         from_attributes = True

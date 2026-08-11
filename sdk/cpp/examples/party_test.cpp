@@ -44,9 +44,11 @@ AuthResult authenticate(SDK& sdk, const std::string& username) {
 void leave_existing_party(SDK& sdk) {
     try {
         const auto profile = sdk.client().get_profile();
-        (void)profile;
-    } catch (const std::exception&) {
-        return;
+        if (!profile.party_id.empty()) {
+            sdk.client().leave_party(profile.party_id);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "   (could not clear a previous party: " << e.what() << ")\n";
     }
 }
 

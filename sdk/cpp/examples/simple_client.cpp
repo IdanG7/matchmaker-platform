@@ -138,6 +138,17 @@ int main(int argc, char** argv) {
                   << "  region=" << profile.region << "\n";
 
         // 3. Create a party. Matchmaking always operates on parties, even solo.
+        //
+        // An earlier run that exited before leaving leaves the account in a
+        // party, and create_party is refused while that is true. The profile
+        // reports it, so the stale one can be abandoned first rather than the
+        // account being stuck for good.
+        if (!profile.party_id.empty()) {
+            std::cout << "      leaving party " << profile.party_id
+                      << " left over from an earlier run\n";
+            sdk.client().leave_party(profile.party_id);
+        }
+
         const auto party = sdk.client().create_party();
         std::cout << "[3/6] party " << party.id << " created (" << party.size << "/"
                   << party.max_size << ")\n";

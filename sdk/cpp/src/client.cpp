@@ -175,6 +175,7 @@ Profile parse_profile(const json& j) {
     profile.email = get_string(j, "email");
     profile.region = get_string(j, "region");
     profile.mmr = get_int(j, "mmr");
+    profile.party_id = get_string(j, "party_id");
     return profile;
 }
 
