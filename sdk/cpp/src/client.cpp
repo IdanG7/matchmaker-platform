@@ -1,8 +1,6 @@
 #include "game/client.hpp"
-#include "url.hpp"
-#include <httplib.h>
+#include "transport.hpp"
 #include <nlohmann/json.hpp>
-#include <ixwebsocket/IXWebSocket.h>
 #include <stdexcept>
 #include <memory>
 #include <mutex>
@@ -15,95 +13,6 @@ using json = nlohmann::json;
 namespace game {
 
 namespace {
-
-// --- WebSocket ------------------------------------------------------------
-
-class WebSocketWrapper {
-public:
-    WebSocketWrapper(const std::string& ws_url, const std::string& token)
-        : connected_(false) {
-        ws_.setUrl(ws_url + "?token=" + token);
-        ws_.setOnMessageCallback([this](const ix::WebSocketMessagePtr& msg) {
-            this->onMessage(msg);
-        });
-    }
-
-    ~WebSocketWrapper() { disconnect(); }
-
-    // Blocks until the socket opens or the timeout expires. Returns whether it
-    // opened, so callers can surface a failure instead of silently proceeding
-    // with a socket that will never deliver events.
-    bool connect(std::chrono::seconds timeout = std::chrono::seconds(5)) {
-        ws_.start();
-        std::unique_lock<std::mutex> lk(state_mutex_);
-        state_cv_.wait_for(lk, timeout, [this] { return connected_.load(); });
-        return connected_.load();
-    }
-
-    void disconnect() {
-        ws_.stop();
-        {
-            std::lock_guard<std::mutex> lk(state_mutex_);
-            connected_ = false;
-        }
-        state_cv_.notify_all();
-    }
-
-    bool is_connected() const { return connected_.load(); }
-
-    void set_event_callback(std::function<void(const std::string&, const json&)> cb) {
-        std::lock_guard<std::mutex> lock(callback_mutex_);
-        event_callback_ = std::move(cb);
-    }
-
-private:
-    void set_connected(bool value) {
-        {
-            std::lock_guard<std::mutex> lk(state_mutex_);
-            connected_ = value;
-        }
-        state_cv_.notify_all();
-    }
-
-    void onMessage(const ix::WebSocketMessagePtr& msg) {
-        switch (msg->type) {
-        case ix::WebSocketMessageType::Open:
-            set_connected(true);
-            break;
-        case ix::WebSocketMessageType::Close:
-        case ix::WebSocketMessageType::Error:
-            set_connected(false);
-            break;
-        case ix::WebSocketMessageType::Message: {
-            json parsed;
-            try {
-                parsed = json::parse(msg->str);
-            } catch (const json::exception&) {
-                return; // ignore malformed frames
-            }
-            const std::string event = parsed.value("event", "");
-            const json data = parsed.value("data", json::object());
-
-            std::function<void(const std::string&, const json&)> cb;
-            {
-                std::lock_guard<std::mutex> lock(callback_mutex_);
-                cb = event_callback_;
-            }
-            if (cb) cb(event, data);
-            break;
-        }
-        default:
-            break;
-        }
-    }
-
-    ix::WebSocket ws_;
-    std::atomic<bool> connected_;
-    std::function<void(const std::string&, const json&)> event_callback_;
-    std::mutex callback_mutex_;
-    std::mutex state_mutex_;
-    std::condition_variable state_cv_;
-};
 
 // --- Response parsing -----------------------------------------------------
 
@@ -217,9 +126,6 @@ MatchInfo parse_match_info(const json& j) {
 
 } // namespace
 
-using detail::ParsedURL;
-using detail::parse_url;
-
 bool MatchInfo::split_endpoint(std::string& host, uint16_t& port) const {
     const size_t colon = server_endpoint.rfind(':');
     if (colon == std::string::npos || colon == 0 || colon + 1 >= server_endpoint.size()) {
@@ -244,7 +150,6 @@ class Client::Impl {
 public:
     std::string base_url;
     std::string token;
-    ParsedURL parsed_url;
     std::string player_id;  // cached profile id, filled on first use
 
     MatchFoundCallback match_found_callback;
@@ -252,50 +157,35 @@ public:
     EventCallback event_callback;
     std::mutex callback_mutex;
 
-    std::unique_ptr<WebSocketWrapper> ws_client;
+    std::unique_ptr<detail::WebSocket> ws_client;
 
-    Impl(const std::string& url, const std::string& tok)
-        : base_url(url), token(tok), parsed_url(parse_url(url)) {}
+    Impl(const std::string& url, const std::string& tok) : base_url(url), token(tok) {}
 
-    httplib::Headers auth_headers() const {
+    detail::Headers auth_headers() const {
         return {{"Authorization", "Bearer " + token},
                 {"Content-Type", "application/json"}};
     }
 
     // Single place where an HTTP call is made, checked, and parsed. Every
-    // endpoint below goes through here so error handling stays consistent.
+    // endpoint below goes through here so error handling stays consistent,
+    // and the transport underneath differs between native and browser builds.
     json request(const char* method,
                  const std::string& path,
                  const std::string& body,
                  const std::string& what) {
-        httplib::Client http(parsed_url.host, parsed_url.port);
-        http.set_connection_timeout(5, 0);
-        http.set_read_timeout(10, 0);
+        const auto res =
+            detail::http_request(base_url, method, path, body, auth_headers());
 
-        httplib::Result res(nullptr, httplib::Error::Unknown);
-        const std::string m(method);
-        if (m == "GET") {
-            res = http.Get(path.c_str(), auth_headers());
-        } else if (m == "POST") {
-            res = http.Post(path.c_str(), auth_headers(), body, "application/json");
-        } else if (m == "PATCH") {
-            res = http.Patch(path.c_str(), auth_headers(), body, "application/json");
-        } else if (m == "DELETE") {
-            res = http.Delete(path.c_str(), auth_headers());
-        } else {
-            throw std::runtime_error("Unsupported HTTP method: " + m);
+        if (!res.transport_ok) {
+            throw std::runtime_error(what + ": " + res.error + " (" + base_url + ")");
         }
-
-        if (!res) {
-            throw std::runtime_error(what + ": could not reach " + base_url);
-        }
-        if (res->status < 200 || res->status >= 300) {
+        if (res.status < 200 || res.status >= 300) {
             throw std::runtime_error(
-                what + ": " + error_detail(res->body, "HTTP " + std::to_string(res->status)));
+                what + ": " + error_detail(res.body, "HTTP " + std::to_string(res.status)));
         }
-        if (res->body.empty()) return json::object();
+        if (res.body.empty()) return json::object();
         try {
-            return json::parse(res->body);
+            return json::parse(res.body);
         } catch (const json::exception&) {
             throw std::runtime_error(what + ": server returned malformed JSON");
         }
@@ -470,12 +360,23 @@ void Client::connect_ws(const std::string& party_id) {
     while (!ws_url.empty() && ws_url.back() == '/') ws_url.pop_back();
     ws_url += "/v1/ws/party/" + party_id;
 
-    auto client = std::make_unique<WebSocketWrapper>(ws_url, impl_->token);
-    client->set_event_callback([this](const std::string& event, const json& data) {
-        impl_->handle_ws_event(event, data);
+    // The token rides in the query string: browsers cannot set headers on a
+    // WebSocket handshake, so this is the only option that works on both.
+    ws_url += "?token=" + impl_->token;
+
+    auto client = std::make_unique<detail::WebSocket>();
+    client->set_message_handler([this](const std::string& frame) {
+        json parsed;
+        try {
+            parsed = json::parse(frame);
+        } catch (const json::exception&) {
+            return; // ignore malformed frames
+        }
+        impl_->handle_ws_event(parsed.value("event", ""),
+                               parsed.value("data", json::object()));
     });
 
-    if (!client->connect()) {
+    if (!client->connect(ws_url, std::chrono::seconds(5))) {
         throw std::runtime_error("Failed to open party WebSocket at " + ws_url);
     }
     impl_->ws_client = std::move(client);

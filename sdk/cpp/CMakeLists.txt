@@ -19,37 +19,44 @@ endif()
 # Dependencies
 include(FetchContent)
 
-# cpp-httplib for HTTP requests
-FetchContent_Declare(
-    httplib
-    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG v0.15.3
-)
-
-# IXWebSocket for WebSocket.
+# Native transport dependencies.
 #
-# zlib only backs permessage-deflate, which we do not use, so it is disabled
-# rather than dragged in as a platform dependency. TLS is enabled only when
-# OpenSSL is already present: without this the build hard-fails on machines
-# that have neither, which is what the vcpkg/chocolatey CI workarounds were
-# compensating for.
-set(USE_ZLIB OFF CACHE BOOL "" FORCE)
-set(IXWEBSOCKET_INSTALL OFF CACHE BOOL "" FORCE)
+# Under Emscripten neither is used or fetched: the browser build talks to the
+# network through emscripten's own fetch and websocket.js, and both of these
+# libraries assume BSD sockets and threads.
+if(NOT EMSCRIPTEN)
+    # cpp-httplib for HTTP requests
+    FetchContent_Declare(
+        httplib
+        GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+        GIT_TAG v0.15.3
+    )
 
-find_package(OpenSSL QUIET)
-if(OPENSSL_FOUND)
-    message(STATUS "OpenSSL found - enabling TLS (wss:// and https:// supported)")
-    set(USE_TLS ON CACHE BOOL "" FORCE)
-else()
-    message(STATUS "OpenSSL not found - building without TLS (ws:// and http:// only)")
-    set(USE_TLS OFF CACHE BOOL "" FORCE)
+    # IXWebSocket for WebSocket.
+    #
+    # zlib only backs permessage-deflate, which we do not use, so it is
+    # disabled rather than dragged in as a platform dependency. TLS is enabled
+    # only when OpenSSL is already present: without this the build hard-fails
+    # on machines that have neither, which is what the vcpkg/chocolatey CI
+    # workarounds were compensating for.
+    set(USE_ZLIB OFF CACHE BOOL "" FORCE)
+    set(IXWEBSOCKET_INSTALL OFF CACHE BOOL "" FORCE)
+
+    find_package(OpenSSL QUIET)
+    if(OPENSSL_FOUND)
+        message(STATUS "OpenSSL found - enabling TLS (wss:// and https:// supported)")
+        set(USE_TLS ON CACHE BOOL "" FORCE)
+    else()
+        message(STATUS "OpenSSL not found - building without TLS (ws:// and http:// only)")
+        set(USE_TLS OFF CACHE BOOL "" FORCE)
+    endif()
+
+    FetchContent_Declare(
+        ixwebsocket
+        GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
+        GIT_TAG v11.4.6
+    )
 endif()
-
-FetchContent_Declare(
-    ixwebsocket
-    GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
-    GIT_TAG v11.4.6
-)
 
 # nlohmann_json for JSON parsing
 FetchContent_Declare(
@@ -58,7 +65,11 @@ FetchContent_Declare(
     GIT_TAG v3.11.3
 )
 
-FetchContent_MakeAvailable(httplib ixwebsocket json)
+if(EMSCRIPTEN)
+    FetchContent_MakeAvailable(json)
+else()
+    FetchContent_MakeAvailable(httplib ixwebsocket json)
+endif()
 
 # Source files
 set(SOURCES
@@ -67,6 +78,14 @@ set(SOURCES
     src/auth.cpp
     src/session.cpp
 )
+
+# One of two transports, picked by target. Both satisfy src/transport.hpp, so
+# nothing above this line knows which is in play.
+if(EMSCRIPTEN)
+    list(APPEND SOURCES src/transport_wasm.cpp)
+else()
+    list(APPEND SOURCES src/transport_native.cpp)
+endif()
 
 set(HEADERS
     include/game/sdk.hpp
@@ -90,13 +109,28 @@ target_include_directories(game-sdk
 )
 
 # Link libraries
-target_link_libraries(game-sdk
-    PUBLIC
-        nlohmann_json::nlohmann_json
-    PRIVATE
-        httplib::httplib
-        ixwebsocket
-)
+if(EMSCRIPTEN)
+    target_link_libraries(game-sdk PUBLIC nlohmann_json::nlohmann_json)
+
+    # ASYNCIFY is what lets the blocking API survive in a browser: the
+    # transport yields to the event loop mid-call and resumes afterwards.
+    # websocket.js provides emscripten_websocket_*. Both are PUBLIC because
+    # anything linking this library needs them at link time too.
+    # Link-time only: emcc ignores these while compiling and warns.
+    #   ASYNCIFY     lets the blocking API yield to the browser and resume
+    #   FETCH        provides emscripten_fetch, used for HTTP
+    #   websocket.js provides emscripten_websocket_*
+    # PUBLIC because anything linking this library needs them at link time too.
+    target_link_options(game-sdk PUBLIC -sASYNCIFY -sFETCH=1 -lwebsocket.js)
+else()
+    target_link_libraries(game-sdk
+        PUBLIC
+            nlohmann_json::nlohmann_json
+        PRIVATE
+            httplib::httplib
+            ixwebsocket
+    )
+endif()
 
 # Examples
 if(BUILD_EXAMPLES)

@@ -1,6 +1,5 @@
 #include "game/session.hpp"
-#include "url.hpp"
-#include <httplib.h>
+#include "transport.hpp"
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -17,28 +16,25 @@ bool post_json(const std::string& base_url,
                const std::string& path,
                const json& body,
                std::string* error) {
-    const auto parsed = detail::parse_url(base_url);
-    httplib::Client client(parsed.host, parsed.port);
-    client.set_connection_timeout(5, 0);
-    client.set_read_timeout(10, 0);
+    const detail::Headers headers = {{"Content-Type", "application/json"}};
+    const auto res = detail::http_request(base_url, "POST", path, body.dump(), headers);
 
-    const auto res = client.Post(path.c_str(), body.dump(), "application/json");
-    if (!res) {
-        set_error(error, "Connection failed");
+    if (!res.transport_ok) {
+        set_error(error, res.error);
         return false;
     }
-    if (res->status < 200 || res->status >= 300) {
-        std::string detail = "HTTP " + std::to_string(res->status);
+    if (res.status < 200 || res.status >= 300) {
+        std::string message = "HTTP " + std::to_string(res.status);
         try {
-            const auto parsed_body = json::parse(res->body);
+            const auto parsed_body = json::parse(res.body);
             if (parsed_body.contains("detail")) {
                 const auto& d = parsed_body["detail"];
-                detail = d.is_string() ? d.get<std::string>() : d.dump();
+                message = d.is_string() ? d.get<std::string>() : d.dump();
             }
         } catch (const json::exception&) {
             // keep the status-code message
         }
-        set_error(error, detail);
+        set_error(error, message);
         return false;
     }
     return true;
