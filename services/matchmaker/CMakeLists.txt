@@ -49,9 +49,13 @@ endif()
 set(NATS_BUILD_WITH_TLS OFF CACHE BOOL "" FORCE)
 set(NATS_BUILD_STREAMING OFF CACHE BOOL "" FORCE)
 set(NATS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(NATS_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(NATS_BUILD_LIB_SHARED OFF CACHE BOOL "" FORCE)
 set(NATS_BUILD_LIB_STATIC ON CACHE BOOL "" FORCE)
+
+# nats.c registers its own 300+ tests through the standard CTest option, and
+# they need a live nats-server. Left on, `ctest` here runs those instead of
+# this service's tests and fails. This service's own tests use BUILD_TESTS.
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
     cnats

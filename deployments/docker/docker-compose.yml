@@ -98,7 +98,13 @@ services:
   # Owns the game server binary and its port range. Lives in the game
   # repository, so its build context points outside this one; override
   # GAME_REPO_PATH if your checkout is somewhere else.
+  #
+  # Behind a profile because that checkout is not always present: the platform
+  # has to come up on its own for CI and for anyone working on it without the
+  # game. Start it with `docker compose --profile game up` (or `make up-game`),
+  # otherwise the API allocates mock servers and says so in the logs.
   game-agent:
+    profiles: ["game"]
     build:
       context: ${GAME_REPO_PATH:-../../../../MP-SDK-Game}
       dockerfile: agent/Dockerfile

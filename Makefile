@@ -25,6 +25,13 @@ up: $(ENV_FILE) ## Start all services and run migrations
 	$(COMPOSE) exec -T postgres psql -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) -f /migrations/init.sql
 	@echo "Stack is up. API at http://localhost:8080/docs"
 
+up-game: $(ENV_FILE) ## Start the stack including the game server agent
+	$(COMPOSE) --profile game up -d --build
+	@echo "Waiting for postgres..."
+	@until $(COMPOSE) exec -T postgres pg_isready -U $(POSTGRES_USER) -d $(POSTGRES_DB) >/dev/null 2>&1; do sleep 1; done
+	$(COMPOSE) exec -T postgres psql -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) -f /migrations/init.sql
+	@echo "Stack is up with real game servers. API at http://localhost:8080/docs"
+
 migrate: $(ENV_FILE) ## Re-run database migrations
 	$(COMPOSE) exec -T postgres psql -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) -f /migrations/init.sql
 

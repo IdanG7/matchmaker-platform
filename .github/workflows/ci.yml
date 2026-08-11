@@ -414,33 +414,39 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --parallel $(nproc)
 
+      # Compose reads .env from the directory holding the compose file, and
+      # fails fast on any missing value.
       - name: Create .env file
         run: |
-          cp .env.example .env
-          echo "JWT_SECRET_KEY=test-secret-key-for-ci-testing-must-be-at-least-32-chars" >> .env
+          cp deployments/docker/.env.example deployments/docker/.env
+          sed -i 's|^JWT_SECRET_KEY=.*|JWT_SECRET_KEY=test-secret-key-for-ci-testing-must-be-at-least-32-chars|' \
+            deployments/docker/.env
 
+      # The game-agent service is behind the "game" profile and is not started
+      # here: it builds from the game repository, which this one does not have.
+      # The party flow under test does not reach a game server.
       - name: Start backend services
         run: |
           docker compose -f deployments/docker/docker-compose.yml up -d
 
       - name: Wait for PostgreSQL
         run: |
-          timeout 60 bash -c 'until docker compose -f deployments/docker/docker-compose.yml exec -T postgres pg_isready -U postgres; do sleep 2; done'
+          timeout 60 bash -c 'until docker compose -f deployments/docker/docker-compose.yml exec -T postgres pg_isready -U multiplayer -d multiplayer; do sleep 2; done'
 
       - name: Wait for Redis
         run: |
           timeout 60 bash -c 'until docker compose -f deployments/docker/docker-compose.yml exec -T redis redis-cli ping | grep -q PONG; do sleep 2; done'
 
+      - name: Initialize database schema
+        run: |
+          docker compose -f deployments/docker/docker-compose.yml exec -T postgres \
+            psql -v ON_ERROR_STOP=1 -U multiplayer -d multiplayer -f - < db/migrations/init.sql
+          echo "Database schema initialized"
+
       - name: Wait for API to be ready
         run: |
           timeout 90 bash -c 'until curl -sf http://localhost:8080/docs > /dev/null; do sleep 2; echo "Waiting for API..."; done'
-          echo "✅ Backend is ready for SDK testing"
-
-      - name: Initialize database schema
-        run: |
-          echo "Initializing database schema..."
-          docker compose -f deployments/docker/docker-compose.yml exec -T postgres psql -U postgres -d game -f - < db/migrations/init.sql
-          echo "✅ Database schema initialized!"
+          echo "Backend is ready for SDK testing"
 
       - name: Run SDK party test
         run: |
