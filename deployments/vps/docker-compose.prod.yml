@@ -6,28 +6,35 @@
 #     --profile game up -d
 #
 # Differences from the development stack:
-#   - services bind to 127.0.0.1 only, so the reverse proxy is the sole way in
+#   - only the two services the proxy talks to publish a host port at all
 #   - the observability stack is not exposed publicly
 #   - everything restarts unless explicitly stopped
 #   - the agent hands out wss:// URLs routed through the proxy
+#
+# Nothing here publishes a port it does not need. Compose puts every service on
+# one network where they reach each other by name, so postgres, redis, NATS and
+# the observability stack need no host binding -- publishing them on 127.0.0.1
+# bought nothing and cost a guaranteed collision on any box already running a
+# database or a dashboard on the usual port. A published port is also not
+# optional: if something else holds it, the container fails to start.
+#
+# To reach one for administration, forward it over SSH rather than publishing
+# it, e.g. `ssh -L 3000:localhost:3000 box` after adding a temporary binding,
+# or go through the container: `docker compose exec postgres psql -U multiplayer`.
 #
 # Env lives in deployments/docker/.env, same as development. See DEPLOY.md.
 
 services:
   postgres:
-    ports: !override
-      - "127.0.0.1:5432:5432"
+    ports: !override []
     restart: unless-stopped
 
   redis:
-    ports: !override
-      - "127.0.0.1:6379:6379"
+    ports: !override []
     restart: unless-stopped
 
   nats:
-    ports: !override
-      - "127.0.0.1:4222:4222"
-      - "127.0.0.1:8222:8222"
+    ports: !override []
     restart: unless-stopped
 
   api:
@@ -54,24 +61,23 @@ services:
     environment:
       PUBLIC_HOST: ${PUBLIC_HOST:?PUBLIC_HOST must be set}
       # Routed by path through the proxy, because per-match ports cannot each
-      # have their own certificate. Must match the matcher in the Caddyfile.
+      # have their own certificate. Must match the port range the proxy allows
+      # through -- the matcher in the Caddyfile, or the location regex in
+      # nginx-demo.conf.
       PUBLIC_URL_TEMPLATE: wss://${PUBLIC_HOST}/gs/{port}
       MATCHMAKER_URL: http://api:8080
     restart: unless-stopped
 
-  # Dashboards are useful but have no business being public on a demo box.
+  # Dashboards are useful but have no business being public on a demo box, and
+  # 3000 in particular is the first port anything else on the host will take.
   grafana:
-    ports: !override
-      - "127.0.0.1:3000:3000"
+    ports: !override []
     restart: unless-stopped
 
   prometheus:
-    ports: !override
-      - "127.0.0.1:9090:9090"
+    ports: !override []
     restart: unless-stopped
 
   jaeger:
-    ports: !override
-      - "127.0.0.1:16686:16686"
-      - "127.0.0.1:4318:4318"
+    ports: !override []
     restart: unless-stopped

@@ -73,18 +73,52 @@ That writes `game_client.{html,js,wasm}` into `web/`. Serve that directory —
 
 ## 4. Reverse proxy
 
+Two configurations ship here. Pick by what the box already runs — nothing can
+share ports 80 and 443, so a host already serving a site keeps its own web
+server and gains a virtual host, rather than handing the ports to Caddy.
+
+Whichever you use, the game-server route is the piece worth understanding: each
+match gets its own port, and per-port certificates are not practical, so ports
+are routed by path (`/gs/9100` → `127.0.0.1:9100`). The agent is configured with
+a matching `PUBLIC_URL_TEMPLATE`, so a client is told to connect to
+`wss://demo.example.com/gs/9100`. **If you change the port range, change it in
+the compose overlay and in the proxy config together.**
+
+### A box with nothing on 80/443: Caddy
+
 Edit `deployments/vps/Caddyfile`, replacing `demo.example.com`, then:
 
 ```bash
 sudo caddy run --config deployments/vps/Caddyfile
 ```
 
-Caddy handles certificates on its own. The one piece worth understanding is the
-game-server route: each match gets its own port, and per-port certificates are
-not practical, so ports are routed by path (`/gs/9100` → `127.0.0.1:9100`). The
-agent is configured with a matching `PUBLIC_URL_TEMPLATE`, so a client is told
-to connect to `wss://demo.example.com/gs/9100`. **If you change the port range,
-change it in both places.**
+Caddy obtains and renews certificates on its own.
+
+### A box already running nginx
+
+```bash
+sudo cp deployments/vps/nginx-websocket-map.conf /etc/nginx/conf.d/
+sudo cp deployments/vps/nginx-demo.conf /etc/nginx/sites-available/zone-control
+sudo sed -i 's/demo.example.com/YOUR.HOST/' /etc/nginx/sites-available/zone-control
+sudo ln -s /etc/nginx/sites-available/zone-control /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d YOUR.HOST
+```
+
+Three things differ from Caddy and each one fails quietly if missed:
+
+- **The map file is not optional.** `$connection_upgrade` can only be declared
+  in the http context, so it cannot live in the server block that uses it.
+  Without it nginx refuses to start.
+- **nginx does not upgrade WebSockets by default.** Both proxying locations set
+  `Upgrade`/`Connection` explicitly; drop them and the handshake returns 200
+  while the client waits for a socket that never opens.
+- **Run certbot after DNS resolves.** It rewrites the file in place to add the
+  TLS listener, and its HTTP-01 challenge fails against a hostname that does
+  not yet point at the box.
+
+Existing sites are untouched: this is a new `server_name`, and nginx routes by
+that, so anything already configured keeps serving exactly as before.
 
 ## 5. Keep bots in the queue
 
@@ -123,5 +157,11 @@ allocated.
   so anyone who knows a port can join a match in progress. Closing that means
   adding a protocol message and validating it server-side.
 - **Ports 9100-9110 cap you at eleven concurrent matches.** The agent returns
-  503 beyond that; widen the range in the compose overlay and the Caddyfile
-  together.
+  503 beyond that; widen the range in the compose overlay and in whichever
+  proxy config you are using, together.
+- **Only the API and the game-server range are published to the host.**
+  Postgres, Redis, NATS and the observability stack are reachable over the
+  compose network and nowhere else, so they cannot collide with anything else
+  on the box. To reach one, go through the container
+  (`docker compose exec postgres psql -U multiplayer`) rather than publishing
+  a port.
