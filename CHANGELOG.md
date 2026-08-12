@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.19](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.18...multiplayer-sdk-v0.1.19) (2026-08-12)
+
+
+### Bug Fixes
+
+* **sdk:** deliver browser WebSocket events without re-entering wasm ([54bb734](https://github.com/IdanG7/matchmaker-platform/commit/54bb73401165e3ace61f717ffdc33ab93b8103e2))
+* **sdk:** deliver browser WebSocket events without re-entering wasm ([56d8b32](https://github.com/IdanG7/matchmaker-platform/commit/56d8b32550809a54126d00e858c5bcf4469b96bd))
+
 ## [0.1.18](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.17...multiplayer-sdk-v0.1.18) (2026-08-12)
 
 
