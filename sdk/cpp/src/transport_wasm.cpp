@@ -154,16 +154,29 @@ struct WebSocket::Impl {
         return EM_TRUE;
     }
 
+    // Buffers the frame. Deliberately does not call the handler.
+    //
+    // This runs from the browser's event loop, which means it can run while
+    // the program is suspended inside emscripten_sleep() waiting on an HTTP
+    // response -- entering the queue is exactly such a moment, and the
+    // match.found frame answering it arrives milliseconds later. Calling
+    // application code from here re-enters WebAssembly mid-unwind, and
+    // Asyncify's state machine traps on that: the module dies with
+    // "unreachable", which -sASSERTIONS blames on ASYNCIFY_STACK_SIZE and
+    // raising that does not help. Copying bytes is safe because this function
+    // reaches nothing that can suspend; poll() does the dispatching later.
     static EM_BOOL on_message(int, const EmscriptenWebSocketMessageEvent* event,
                               void* user_data) {
         auto* impl = static_cast<Impl*>(user_data);
-        if (!event->isText || !impl->handler) return EM_TRUE;
+        if (!event->isText) return EM_TRUE;
 
         // numBytes includes the terminating NUL for text frames.
         const size_t length = event->numBytes > 0 ? event->numBytes - 1 : 0;
-        impl->handler(std::string(reinterpret_cast<const char*>(event->data), length));
+        impl->pending.emplace_back(reinterpret_cast<const char*>(event->data), length);
         return EM_TRUE;
     }
+
+    std::vector<std::string> pending;
 };
 
 WebSocket::WebSocket() : impl_(std::make_unique<Impl>()) {}
@@ -174,6 +187,19 @@ WebSocket::~WebSocket() {
 
 void WebSocket::set_message_handler(MessageHandler handler) {
     impl_->handler = std::move(handler);
+}
+
+void WebSocket::poll() {
+    if (impl_->pending.empty() || !impl_->handler) return;
+
+    // Swapped out first: a handler may make blocking calls of its own, which
+    // yield to the browser, which can deliver more frames into the buffer
+    // while this loop is still running.
+    std::vector<std::string> frames;
+    frames.swap(impl_->pending);
+    for (const auto& frame : frames) {
+        impl_->handler(frame);
+    }
 }
 
 bool WebSocket::connect(const std::string& url, std::chrono::seconds timeout) {

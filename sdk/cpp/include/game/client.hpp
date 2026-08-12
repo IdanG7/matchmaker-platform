@@ -46,7 +46,19 @@ public:
     void disconnect_ws();
     bool is_ws_connected() const;
 
-    // Event callbacks. Invoked on the WebSocket thread.
+    // Delivers any WebSocket events that have arrived.
+    //
+    // Native builds dispatch from the socket's own thread, so this does
+    // nothing and calling it is harmless. Browser builds have no threads and
+    // dispatch only from here, so a WASM client that never calls this never
+    // learns that its match was found. Call it from the main loop, not from
+    // inside another SDK call: under Asyncify the callbacks may make blocking
+    // calls of their own, and starting one while another is suspended traps
+    // the module.
+    void poll();
+
+    // Event callbacks. Invoked from poll() in the browser, and on the
+    // WebSocket thread natively.
     void on_match_found(MatchFoundCallback callback);
     void on_lobby_update(LobbyUpdateCallback callback);
     void on_event(EventCallback callback);
