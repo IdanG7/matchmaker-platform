@@ -390,6 +390,10 @@ void Client::disconnect_ws() {
     }
 }
 
+void Client::poll() {
+    if (impl_->ws_client) impl_->ws_client->poll();
+}
+
 bool Client::is_ws_connected() const {
     return impl_->ws_client && impl_->ws_client->is_connected();
 }

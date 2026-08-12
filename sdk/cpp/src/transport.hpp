@@ -43,9 +43,10 @@ HttpResponse http_request(const std::string& base_url,
 
 // A WebSocket that delivers text frames to a handler.
 //
-// Natively the handler runs on the socket's own thread. Under Emscripten
-// there are no threads and it runs on the browser's event loop, so callers
-// must treat it as arriving from somewhere else either way.
+// Natively the handler runs on the socket's own thread. Under Emscripten it
+// runs from poll(), which the owner must call. Either way the handler arrives
+// from somewhere other than the call that is running, so callers treat it as
+// asynchronous on both targets.
 class WebSocket {
 public:
     using MessageHandler = std::function<void(const std::string&)>;
@@ -58,6 +59,17 @@ public:
 
     // Set before connecting so no early frame is missed.
     void set_message_handler(MessageHandler handler);
+
+    // Delivers whatever frames have arrived since the last call.
+    //
+    // Native builds dispatch from the socket thread and this does nothing.
+    // Under Emscripten it is the only thing that dispatches, and it must be
+    // called from ordinary program flow -- a game loop -- and never from
+    // inside a blocking SDK call. A browser frame can land while a request is
+    // suspended mid-Asyncify-unwind, and running application code at that
+    // moment traps the whole module on an "unreachable". Buffering the frame
+    // and handing it over later is what keeps that from happening.
+    void poll();
 
     // Blocks until the socket opens or the timeout expires. Returns whether
     // it opened, so a caller can report failure rather than sit on a socket

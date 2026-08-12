@@ -106,6 +106,11 @@ WebSocket::~WebSocket() {
     disconnect();
 }
 
+// Frames are dispatched from IXWebSocket's own thread as they arrive, so
+// there is nothing buffered for this to hand over. It exists so that callers
+// can be written once against both transports.
+void WebSocket::poll() {}
+
 void WebSocket::set_message_handler(MessageHandler handler) {
     std::lock_guard<std::mutex> lock(impl_->handler_mutex);
     impl_->handler = std::move(handler);

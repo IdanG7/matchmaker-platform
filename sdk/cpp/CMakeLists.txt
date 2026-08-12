@@ -121,7 +121,22 @@ if(EMSCRIPTEN)
     #   FETCH        provides emscripten_fetch, used for HTTP
     #   websocket.js provides emscripten_websocket_*
     # PUBLIC because anything linking this library needs them at link time too.
-    target_link_options(game-sdk PUBLIC -sASYNCIFY -sFETCH=1 -lwebsocket.js)
+    #
+    # ASYNCIFY_STACK_SIZE is raised from its 4KB default because that default is
+    # not enough for this library. Every unwind has to hold the whole C++ stack
+    # at the point it suspends, and a call here suspends inside the JSON parser,
+    # several frames below the caller. 4KB survives the shallow calls and blows
+    # up on the deeper ones, so a client signs in and creates a party fine and
+    # then dies on the queue call. The overflow does not report itself: the page
+    # aborts with a bare "unreachable", and only with -sASSERTIONS=1 does
+    # emscripten name ASYNCIFY_STACK_SIZE as the likely cause. 64KB is one
+    # allocation for the life of the page.
+    target_link_options(game-sdk PUBLIC
+        -sASYNCIFY
+        -sASYNCIFY_STACK_SIZE=65536
+        -sFETCH=1
+        -lwebsocket.js
+    )
 else()
     target_link_libraries(game-sdk
         PUBLIC
