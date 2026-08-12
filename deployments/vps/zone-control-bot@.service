@@ -1,0 +1,54 @@
+# One queued filler bot. Templated: enable as zone-control-bot@1, @2, @3.
+#
+# A visitor who queues alone waits forever, so the demo needs opponents sitting
+# in the queue. The client is built for duo/team-size 2, which is four players,
+# so three bots are what lets one visitor be matched immediately. Enable
+# exactly as many as the mode needs minus one.
+#
+# One unit per bot rather than a loop that spawns three: a bot exits when its
+# match ends or its queue timeout expires, and systemd restarting a single
+# foreground process is a far more reliable way to handle that than a shell
+# loop trying to work out which of its children are still alive.
+#
+# Install:
+#   sudo cp deployments/vps/zone-control-bot@.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now zone-control-bot@1 zone-control-bot@2 zone-control-bot@3
+#
+# Watch one:  journalctl -u zone-control-bot@1 -f
+
+[Unit]
+Description=Zone Control filler bot %i
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/matchmaker-platform
+
+# -T because there is no TTY under systemd, and without it the exec fails
+# immediately with "the input device is not a TTY".
+ExecStart=/usr/bin/docker compose \
+  -f deployments/docker/docker-compose.yml \
+  -f deployments/vps/docker-compose.prod.yml \
+  exec -T game-agent \
+  zone_bot --matchmaker http://api:8080 \
+    --name filler%i --username bot_filler%i --password bot-password \
+    --mode duo --team-size 2 \
+    --server-host 127.0.0.1 \
+    --queue-timeout 600 --timeout 1200
+
+# A bot exiting is normal: it played a match, or it timed out waiting. Restart
+# either way.
+#
+# No staggering is needed, and it would not work here anyway -- systemd does
+# not expand %i in RestartSec and silently ignores the whole directive. It is
+# unnecessary because three bots cannot form a match on their own: duo with
+# team-size 2 needs four players, so they queue and wait, which is exactly the
+# state a visitor should arrive into. Run one fewer bot than the mode requires.
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
