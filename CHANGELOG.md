@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.1.17](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.16...multiplayer-sdk-v0.1.17) (2026-08-11)
+
+
+### Features
+
+* **api:** report a connectable URL for allocated game servers ([db66abf](https://github.com/IdanG7/matchmaker-platform/commit/db66abf3a952a651a234848374a5c46822ab46e3))
+* **api:** report the caller's current party on their profile ([1ba366b](https://github.com/IdanG7/matchmaker-platform/commit/1ba366b29c198abd7f935a84c1c3b1f2a70c7a9d))
+* deploy to a VPS, and give browsers a reachable game server URL ([598be13](https://github.com/IdanG7/matchmaker-platform/commit/598be13b90f0e550da9cc9f365f4b8216da3d052))
+* **matchmaker:** connect the service to NATS and ship it in the stack ([cd39339](https://github.com/IdanG7/matchmaker-platform/commit/cd3933953b445816cc46a71b5312dc55a65937d8))
+* party recovery and response-field contract tests ([37a2a32](https://github.com/IdanG7/matchmaker-platform/commit/37a2a3242131d50ba402f947774128dce3dd9b9f))
+* **sdk:** add the session API and drop the second SDK ([5825a4e](https://github.com/IdanG7/matchmaker-platform/commit/5825a4e8d97bb385dce7df431085ad917820d98b))
+* **sdk:** build for WebAssembly as well as native ([814761d](https://github.com/IdanG7/matchmaker-platform/commit/814761d6854c06e2ad7b65d468cf4f1c21d060f5))
+* **sdk:** one SDK for native and the browser ([debb488](https://github.com/IdanG7/matchmaker-platform/commit/debb488b1bf60f0a384eceab4fd842a63cb74b98))
+* **sdk:** session API, and remove the duplicate SDK ([bc5a070](https://github.com/IdanG7/matchmaker-platform/commit/bc5a070768e607fd59257a180d7ee8596983f61a))
+
+
+### Bug Fixes
+
+* **api:** decode json columns and make the test suite actually run ([8efc033](https://github.com/IdanG7/matchmaker-platform/commit/8efc033690b50d5dbe9813c86dfb1adbba0e616a))
+* **api:** deliver match.found to clients and allocate real game servers ([ebed30a](https://github.com/IdanG7/matchmaker-platform/commit/ebed30aeee7bd6f7756d9f7cbc084c73e3c5aefe))
+* **ci:** keep nats.c tests out of ctest and repair the E2E job ([ed6955f](https://github.com/IdanG7/matchmaker-platform/commit/ed6955ffb19efbe495066033d80cc16d6fd1d264))
+* **ci:** make the documented quickstart produce a working stack ([d693400](https://github.com/IdanG7/matchmaker-platform/commit/d6934006fc149d90e9389799b9bfbd3163a17b97))
+* **ci:** point the integration job at the right database ([6fa5a17](https://github.com/IdanG7/matchmaker-platform/commit/6fa5a172b40c09a8f6eb9963d59c10b6fddf4a77))
+* make matchmaking work end to end ([d7e8490](https://github.com/IdanG7/matchmaker-platform/commit/d7e8490d92fe0f89b62a42ef05a17bbf8741406c))
+* **sdk:** correct endpoint and response schema drift against the API ([05bb535](https://github.com/IdanG7/matchmaker-platform/commit/05bb535b71217f817e69903c838395700150de4f))
+* **sdk:** make the unit tests independent of the local stack ([957485f](https://github.com/IdanG7/matchmaker-platform/commit/957485fad90b4086494594cd9c22ddc490775e49))
+
+
+### Documentation
+
+* add comprehensive documentation and developer tooling ([#25](https://github.com/IdanG7/matchmaker-platform/issues/25)) ([2b0f84c](https://github.com/IdanG7/matchmaker-platform/commit/2b0f84ca118c741a10d0d1890348517461a17007))
+
 ## [0.1.16](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.15...multiplayer-sdk-v0.1.16) (2025-10-11)
 
 
