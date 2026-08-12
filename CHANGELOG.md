@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.18](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.17...multiplayer-sdk-v0.1.18) (2026-08-12)
+
+
+### Documentation
+
+* **sdk:** update the integration guide to the API that exists ([cffd60b](https://github.com/IdanG7/matchmaker-platform/commit/cffd60bc40188facd291607ec385f08ab5c66864))
+
 ## [0.1.17](https://github.com/IdanG7/matchmaker-platform/compare/multiplayer-sdk-v0.1.16...multiplayer-sdk-v0.1.17) (2026-08-11)
 
 
